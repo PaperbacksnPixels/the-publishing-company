@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.name }} — The Publishing Company{% endblock %}
+
+{% block content %}
+<div class="project-detail">
+  <p class="back-link">
+    <a href="{{ url_for('projects_list') }}">← Back to projects</a>
+  </p>
+
+  <h1>{{ project.name }}</h1>
+  <p class="subtitle">
+    <span class="status-badge status-{{ project.status|lower|replace(' ', '-') }}">{{ project.status }}</span>
+    &middot; {{ project.service }}
+  </p>
+
+  <div class="card">
+    <h2>Project overview</h2>
+    <dl>
+      <dt>Book title</dt>
+      <dd>{{ project.fields.get('fld2wXSVFxt3QHnX0', '—') }}</dd>
+      <dt>Service</dt>
+      <dd>{{ project.service }}</dd>
+      <dt>Status</dt>
+      <dd>{{ project.status }}</dd>
+      <dt>Start date</dt>
+      <dd>{{ project.start_date or '—' }}</dd>
+    </dl>
+  </div>
+
+  <div class="card">
+    <h2>Billing summary</h2>
+    <dl>
+      <dt>Project fee</dt>
+      <dd>${{ '{:,.0f}'.format(project.fields.get('fldH1ypvmL7uqN6kT', 0)) }}</dd>
+      <dt>Deposit amount</dt>
+      <dd>${{ '{:,.0f}'.format(project.fields.get('fldjIDncmB6pIiPtX', 0)) }}</dd>
+      <dt>Deposit paid</dt>
+      <dd>{% if project.fields.get('fldXKN3e7lcy1Q0bd') %}✅ Paid{% else %}⏳ Pending{% endif %}</dd>
+      <dt>Balance due</dt>
+      <dd>${{ '{:,.0f}'.format(project.fields.get('fldgximxFCWg7bmv7', 0)) }}</dd>
+      <dt>Balance paid</dt>
+      <dd>{% if project.fields.get('fldV2ChhlT9kwfBop') %}✅ Paid{% else %}⏳ Pending{% endif %}</dd>
+      <dt>Total collected</dt>
+      <dd>${{ '{:,.0f}'.format(project.fields.get('fldAnGjvDw5UEAc6M', 0)) }}</dd>
+    </dl>
+  </div>
+
+  <div class="card">
+    <h2>Documents</h2>
+    {#
+      Shows the signed contract from Typeflow (if it's been signed yet)
+      plus the current contract status and any dates we have.
+      Typeflow writes the Google Drive PDF URL into a field on the Project
+      record — when that URL exists, we render a download link.
+    #}
+    {% if project.contract_url %}
+      <ul class="document-list">
+        <li class="document">
+          <div class="document-header">
+            <span class="document-name">Master Services Agreement</span>
+            {% if project.contract_status %}
+              <span class="status-badge status-{{ project.contract_status|lower|replace(' ', '-') }}">{{ project.contract_status }}</span>
+            {% endif %}
+          </div>
+          <div class="document-meta">
+            {% if project.contract_sent_date %}Sent {{ project.contract_sent_date }}{% endif %}
+            {% if project.contract_signed_date %} &middot; Signed {{ project.contract_signed_date }}{% endif %}
+          </div>
+          <a href="{{ project.contract_url }}" class="document-link" target="_blank" rel="noopener">
+            View contract →
+          </a>
+        </li>
+      </ul>
+    {% else %}
+      <p class="hint">
+        {% if project.contract_status and project.contract_status != 'Not Sent' %}
+          Your contract is <strong>{{ project.contract_status }}</strong>.
+          The signed copy will appear here once it's finalized.
+        {% else %}
+          Your contract hasn't been sent yet. It will appear here once
+          Julie sends it through Typeflow.
+        {% endif %}
+      </p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Invoices</h2>
+    {% if invoices %}
+      <ul class="invoice-list">
+        {% for inv in invoices %}
+          <li class="invoice">
+            <div class="invoice-header">
+              <span class="invoice-name">{{ inv.name }}</span>
+              <span class="status-badge status-{{ inv.payment_status|lower|replace(' ', '-') }}">{{ inv.payment_status or 'Pending' }}</span>
+            </div>
+            <div class="invoice-meta">
+              {% if inv.type %}{{ inv.type }} &middot; {% endif %}
+              {% if inv.invoice_date %}Issued {{ inv.invoice_date }}{% endif %}
+              {% if inv.due_date %} &middot; Due {{ inv.due_date }}{% endif %}
+            </div>
+            <div class="invoice-amounts">
+              <span class="amount">${{ '{:,.0f}'.format(inv.amount or 0) }}</span>
+              {% if (inv.outstanding or 0) > 0 %}
+                <span class="outstanding">${{ '{:,.0f}'.format(inv.outstanding) }} outstanding</span>
+              {% endif %}
+            </div>
+            {% if inv.stripe_url %}
+              <a href="{{ inv.stripe_url }}" class="invoice-link" target="_blank" rel="noopener">
+                Pay on Stripe →
+              </a>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="hint">
+        No invoices yet. They'll appear here when Julie sends them.
+      </p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2>Progress</h2>
+    <p>
+      {{ project.fields.get('fldtHh5z0Ciw3sJUR', 0)|int }} total tasks,
+      {{ project.fields.get('fld2fuE6jFyvi5RcZ', 0)|int }} complete.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Milestones</h2>
+    {% if milestones %}
+      <ul class="milestone-list">
+        {% for m in milestones %}
+          <li class="milestone">
+            <div class="milestone-header">
+              <span class="milestone-name">{{ m.name }}</span>
+              <span class="status-badge status-{{ m.status|lower|replace(' ', '-') }}">{{ m.status }}</span>
+            </div>
+            {% if m.module %}
+              <div class="milestone-meta">{{ m.module }}{% if m.due_date %} &middot; Due {{ m.due_date }}{% endif %}</div>
+            {% endif %}
+            {% if m.stage_description %}
+              <p class="milestone-desc">{{ m.stage_description }}</p>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="hint">
+        Your milestone schedule hasn't been set up yet. Check back soon,
+        or contact Julie if you think this is wrong.
+      </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

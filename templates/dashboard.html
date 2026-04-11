@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — The Publishing Company{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <h1>Welcome{% if display_name %}, {{ display_name }}{% endif %}</h1>
+  <p class="subtitle">
+    {% if role %}
+      Signed in as <strong>{{ role }}</strong> &middot; {{ email }}
+    {% else %}
+      Logged in as <strong>{{ email }}</strong>
+    {% endif %}
+  </p>
+
+  <div class="card">
+    <h2>Your portal</h2>
+    <p>Everything you need for your projects, in one place.</p>
+    <p>
+      <a href="{{ url_for('projects_list') }}" class="btn btn-primary">View my projects</a>
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>Account info</h3>
+    <dl>
+      <dt>Name</dt>
+      <dd>{{ display_name or "(not set)" }}</dd>
+      <dt>Email</dt>
+      <dd>{{ email }}</dd>
+      <dt>Role</dt>
+      <dd>{{ role or "(not set)" }}</dd>
+      <dt>Linked Airtable ID</dt>
+      <dd><code>{{ linked_author_id or "(none)" }}</code></dd>
+      <dt>Supabase User ID</dt>
+      <dd><code>{{ user_id }}</code></dd>
+    </dl>
+  </div>
+</div>
+{% endblock %}

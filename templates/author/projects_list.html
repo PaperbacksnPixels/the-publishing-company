@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}My projects — The Publishing Company{% endblock %}
+
+{% block content %}
+<div class="projects-list">
+  <h1>My projects</h1>
+  <p class="subtitle">
+    {% if projects %}
+      You have {{ projects|length }}
+      project{{ 's' if projects|length != 1 else '' }}.
+    {% else %}
+      No projects yet.
+    {% endif %}
+  </p>
+
+  {% if projects %}
+    <div class="project-grid">
+      {% for project in projects %}
+        <a href="{{ url_for('project_detail', project_id=project.id) }}" class="project-card">
+          <h3>{{ project.name }}</h3>
+          <dl>
+            <dt>Service</dt>
+            <dd>{{ project.service or '—' }}</dd>
+            <dt>Status</dt>
+            <dd><span class="status-badge status-{{ project.status|lower|replace(' ', '-') }}">{{ project.status or '—' }}</span></dd>
+            <dt>Start date</dt>
+            <dd>{{ project.start_date or '—' }}</dd>
+          </dl>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card">
+      <p>
+        Your projects will appear here once they've been created.
+        If you think this is wrong, please contact Julie.
+      </p>
+    </div>
+  {% endif %}
+
+  <p class="back-link">
+    <a href="{{ url_for('dashboard') }}">← Back to dashboard</a>
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Reset password — The Publishing Company{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+  <h1>Set a new password</h1>
+  <p class="subtitle">
+    Choose a new password for your account. It must be at least 8 characters.
+  </p>
+
+  {#
+    This form POSTs to /reset-password with three fields:
+      - access_token (hidden, filled in by JavaScript below)
+      - new_password
+      - confirm_password
+
+    The JavaScript at the bottom of this template reads the access_token
+    from the URL fragment (#access_token=...) that Supabase added to the
+    reset link in the email, then stuffs it into the hidden form field
+    so it gets sent with the form submission.
+  #}
+  <form method="POST" action="{{ url_for('reset_password') }}" id="reset-form">
+    <input type="hidden" name="access_token" id="access_token" value="">
+
+    <label for="new_password">New password</label>
+    <input
+      type="password"
+      name="new_password"
+      id="new_password"
+      required
+      minlength="8"
+      autocomplete="new-password"
+    >
+
+    <label for="confirm_password">Confirm new password</label>
+    <input
+      type="password"
+      name="confirm_password"
+      id="confirm_password"
+      required
+      minlength="8"
+      autocomplete="new-password"
+    >
+
+    {#
+      This error message is hidden by default. The JavaScript shows it
+      if the user arrived here without a valid token in the URL (e.g.
+      they navigated to /reset-password directly instead of clicking
+      the email link).
+    #}
+    <p id="token-error" class="error-message" style="display:none;">
+      This page needs to be opened from the password reset email link.
+      <a href="{{ url_for('forgot_password') }}">Request a new one</a>.
+    </p>
+
+    <button type="submit" id="submit-btn">Update password</button>
+  </form>
+
+  <p class="auth-footer">
+    <a href="{{ url_for('login') }}">Back to login</a>
+  </p>
+</div>
+
+{#
+  This script runs when the page loads. Its one job is to pull the
+  access_token out of the URL fragment (everything after the #) and
+  put it into the hidden form field so it gets submitted.
+
+  WHY: Supabase's reset email sends users to a URL that looks like:
+    https://yourdomain.com/reset-password#access_token=eyJ...&type=recovery
+
+  The part after the # is the "URL fragment". Browsers keep fragments
+  local — they never send them to the server. That means our Flask
+  backend CANNOT see the token directly. This JS grabs it client-side
+  and puts it in a normal form field so POST will send it up.
+#}
+<script>
+  (function () {
+    // Grab the hash (includes the leading "#") and strip the "#"
+    var hash = window.location.hash.substring(1);
+
+    // Supabase puts params in the hash like a query string:
+    //   access_token=xxx&refresh_token=yyy&type=recovery
+    // URLSearchParams can parse this for us.
+    var params = new URLSearchParams(hash);
+    var token = params.get('access_token');
+    var type = params.get('type');
+
+    // If we got a recovery token, put it in the hidden field
+    if (token && type === 'recovery') {
+      document.getElementById('access_token').value = token;
+    } else {
+      // No token — show the error message and disable the form
+      document.getElementById('token-error').style.display = 'block';
+      document.getElementById('submit-btn').disabled = true;
+      document.getElementById('new_password').disabled = true;
+      document.getElementById('confirm_password').disabled = true;
+    }
+
+    // Simple client-side check: passwords must match before submit
+    document.getElementById('reset-form').addEventListener('submit', function (e) {
+      var p1 = document.getElementById('new_password').value;
+      var p2 = document.getElementById('confirm_password').value;
+      if (p1 !== p2) {
+        e.preventDefault();
+        alert("Passwords don't match. Please try again.");
+      }
+    });
+  })();
+</script>
+{% endblock %}

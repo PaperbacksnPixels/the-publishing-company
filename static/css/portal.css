@@ -1,0 +1,544 @@
+/* ============================================================
+   The Publishing Company — Portal Styles
+   Based on P&P brand: neobrutalist, yellow + black + ink blue
+   ============================================================ */
+
+/* ---- Design tokens ---- */
+:root {
+  --yellow: #FDE64A;
+  --yellow-soft: #FFFCF1;
+  --black: #000000;
+  --ink-blue: #485CC7;
+  --pink: #FF8287;
+  --white: #FFFFFF;
+  --border: 2px solid var(--black);
+  --radius: 0px;
+  --shadow: 4px 4px 0 var(--black);
+  --font-serif: "Source Serif Pro", Georgia, serif;
+  --font-sans: "Karla", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ---- Base ---- */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  color: var(--black);
+  background: var(--yellow-soft);
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-serif);
+  font-weight: 800;
+  margin: 0 0 0.5rem;
+  line-height: 1.2;
+}
+
+h1 { font-size: 2rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+
+a {
+  color: var(--ink-blue);
+  text-decoration: underline;
+  font-weight: 700;
+}
+
+a:hover {
+  background: var(--yellow);
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* ---- Header ---- */
+.site-header {
+  background: var(--yellow);
+  border-bottom: var(--border);
+  padding: 1rem 0;
+}
+
+.site-header .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.logo {
+  font-family: var(--font-serif);
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: var(--black);
+  text-decoration: none;
+}
+
+.logo:hover {
+  background: none;
+}
+
+.auth-nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.9rem;
+}
+
+.user-email {
+  font-weight: 700;
+}
+
+.btn-link {
+  color: var(--black);
+  text-decoration: underline;
+}
+
+/* ---- Flash messages ---- */
+.flash {
+  margin: 1.5rem 0;
+  padding: 0.75rem 1rem;
+  border: var(--border);
+  font-weight: 700;
+}
+
+.flash-error {
+  background: var(--pink);
+  color: var(--black);
+}
+
+.flash-success {
+  background: var(--yellow);
+  color: var(--black);
+}
+
+.flash-info {
+  background: var(--white);
+  color: var(--black);
+}
+
+/* ---- Auth pages (login, forgot, reset) ---- */
+.auth-card {
+  max-width: 420px;
+  margin: 4rem auto;
+  background: var(--white);
+  border: var(--border);
+  box-shadow: var(--shadow);
+  padding: 2.5rem;
+}
+
+.auth-card h1 {
+  margin-bottom: 0.25rem;
+}
+
+.auth-card .subtitle {
+  margin: 0 0 2rem;
+  color: var(--black);
+  opacity: 0.7;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auth-form label {
+  font-weight: 800;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.auth-form input {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  padding: 0.75rem;
+  border: var(--border);
+  background: var(--yellow-soft);
+  color: var(--black);
+  border-radius: var(--radius);
+}
+
+.auth-form input:focus {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.auth-footer {
+  margin-top: 2rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-block;
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 1rem;
+  padding: 0.85rem 1.5rem;
+  border: var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+
+.btn-primary {
+  background: var(--yellow);
+  color: var(--black);
+  box-shadow: var(--shadow);
+}
+
+.btn-primary:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--black);
+}
+
+.btn-primary:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 var(--black);
+}
+
+/* ---- Landing page ---- */
+.landing {
+  max-width: 600px;
+  margin: 6rem auto;
+  text-align: center;
+}
+
+.landing h1 {
+  font-size: 3rem;
+}
+
+.landing .subtitle {
+  font-size: 1.15rem;
+  margin-bottom: 2rem;
+}
+
+.cta-row {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+/* ---- Dashboard ---- */
+.dashboard {
+  max-width: 800px;
+  margin: 2rem auto;
+}
+
+.dashboard .subtitle {
+  margin-bottom: 2rem;
+}
+
+.card {
+  background: var(--white);
+  border: var(--border);
+  box-shadow: var(--shadow);
+  padding: 1.5rem 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.card h2,
+.card h3 {
+  margin-top: 0;
+}
+
+.card ul {
+  padding-left: 1.25rem;
+  line-height: 1.8;
+}
+
+.card dl {
+  margin: 0;
+}
+
+.card dt {
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  margin-top: 0.75rem;
+}
+
+.card dt:first-child {
+  margin-top: 0;
+}
+
+.card dd {
+  margin: 0.25rem 0 0;
+}
+
+.card code {
+  background: var(--yellow-soft);
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--black);
+  font-size: 0.85rem;
+}
+
+/* ---- Project list / detail ---- */
+.projects-list,
+.project-detail {
+  max-width: 900px;
+  margin: 2rem auto;
+}
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.project-card {
+  display: block;
+  background: var(--white);
+  border: var(--border);
+  box-shadow: var(--shadow);
+  padding: 1.5rem;
+  text-decoration: none;
+  color: var(--black);
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+
+.project-card:hover {
+  background: var(--yellow-soft);
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--black);
+}
+
+.project-card h3 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--black);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--white);
+}
+
+.status-badge.status-active {
+  background: var(--yellow);
+}
+
+.status-badge.status-lead {
+  background: var(--white);
+}
+
+.status-badge.status-complete {
+  background: var(--pink);
+}
+
+.back-link {
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+.hint {
+  font-style: italic;
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
+
+/* ---- Milestone list ---- */
+.milestone-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+
+.milestone {
+  padding: 1rem 0;
+  border-bottom: 1px dashed var(--black);
+}
+
+.milestone:last-child {
+  border-bottom: none;
+}
+
+.milestone-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.milestone-name {
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.milestone-meta {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  margin-top: 0.25rem;
+}
+
+.milestone-desc {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+}
+
+.status-badge.status-not-started {
+  background: var(--white);
+}
+
+.status-badge.status-in-progress {
+  background: var(--yellow);
+}
+
+.status-badge.status-needs-author-approval {
+  background: var(--pink);
+}
+
+.status-badge.status-approved,
+.status-badge.status-complete {
+  background: var(--yellow);
+}
+
+.status-badge.status-paid {
+  background: var(--yellow);
+}
+
+.status-badge.status-overdue {
+  background: var(--pink);
+}
+
+.status-badge.status-invoice-sent,
+.status-badge.status-partially-paid {
+  background: var(--white);
+}
+
+/* ---- Invoice list ---- */
+.invoice-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+
+.invoice {
+  padding: 1rem 0;
+  border-bottom: 1px dashed var(--black);
+}
+
+.invoice:last-child {
+  border-bottom: none;
+}
+
+.invoice-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.invoice-name {
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.invoice-meta {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  margin-top: 0.25rem;
+}
+
+.invoice-amounts {
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+}
+
+.invoice-amounts .amount {
+  font-family: var(--font-serif);
+  font-weight: 800;
+  font-size: 1.25rem;
+}
+
+.invoice-amounts .outstanding {
+  font-size: 0.85rem;
+  color: var(--black);
+  background: var(--pink);
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--black);
+  font-weight: 700;
+}
+
+.invoice-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+/* ---- Document list ---- */
+/* Mirrors the invoice list styles so the Documents card feels consistent. */
+.document-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+}
+
+.document {
+  padding: 1rem 0;
+  border-bottom: 1px dashed var(--black);
+}
+
+.document:last-child {
+  border-bottom: none;
+}
+
+.document-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.document-name {
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.document-meta {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  margin-top: 0.25rem;
+}
+
+.document-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+/* ---- Footer ---- */
+.site-footer {
+  margin-top: 4rem;
+  padding: 2rem 0;
+  border-top: var(--border);
+  font-size: 0.85rem;
+  text-align: center;
+  opacity: 0.7;
+}

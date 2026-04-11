@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}The Publishing Company — Portal{% endblock %}
+
+{% block content %}
+<div class="landing">
+  <h1>The Publishing Company</h1>
+  <p class="subtitle">Client portal for Paperbacks &amp; Pixels projects.</p>
+
+  <div class="cta-row">
+    <a href="{{ url_for('login') }}" class="btn btn-primary">Log in</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+# Secrets — never commit these
+.env
+
+# Python virtual environment
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Flask
+instance/
+*.db
+*.sqlite3
+
+# IDE / local dev config
+.vscode/
+.idea/
+.claude/
+*.swp
+.DS_Store
+
+# OS
+Thumbs.db
+desktop.ini
