@@ -54,6 +54,9 @@ def audit_milestones():
     for rec in records:
         fields = rec.get("fields", {})
         bundle = fields.get(ML_BUNDLE, "")
+        # Handle Bundle as list (Airtable sometimes returns single-select as list)
+        if isinstance(bundle, list):
+            bundle = bundle[0] if bundle else ""
         active = fields.get(ML_TEMPLATE_ACTIVE, False)
 
         info = {

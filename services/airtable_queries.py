@@ -1537,12 +1537,20 @@ def inject_milestones(project_id, service_name, start_date=None):
         return 0
 
     # Step 2: Fetch matching milestone templates
-    formula = f"AND({{Bundle}}='{bundle}', {{Template Active}}=TRUE())"
+    # Bundle is a multiple select field — use FIND to match
+    formula = f"AND(FIND('{bundle}', ARRAYJOIN({{Bundle}})), {{Template Active}}=TRUE())"
     templates = get_records(MILESTONE_LIBRARY_TABLE, formula=formula)
 
     if not templates:
         print(f"WARNING: No active templates for bundle '{bundle}'")
         return 0
+
+    # Chapters — Foundation = Full Concierge minus Launch module (seq 2190-2260)
+    if service_name == "Chapters — Foundation":
+        templates = [
+            t for t in templates
+            if not (2190 <= (t.get("fields", {}).get(ML_SEQUENCE, 0) or 0) <= 2260)
+        ]
 
     # Sort by sequence so tasks are created in order
     templates.sort(key=lambda t: t.get("fields", {}).get(ML_SEQUENCE, 999))
@@ -1554,16 +1562,41 @@ def inject_milestones(project_id, service_name, start_date=None):
     # Use the provided start_date, or fall back to today
     current_date = start_date if start_date else date.today()
 
+    # Parallel modules: get due dates but don't push the main timeline.
+    # Launch runs alongside production, forking after Cover Design Approved.
+    # Map: module name → sequence number it forks from
+    PARALLEL_MODULES = {
+        "Launch": 2110,  # Fork after Cover Design Approved (seq 2110)
+    }
+    parallel_date = None       # Tracks timeline within the parallel branch
+    date_at_sequence = {}      # Saves current_date after each milestone for fork lookups
+
     for tmpl in templates:
         tf = tmpl.get("fields", {})
         duration = tf.get(ML_DURATION_DAYS, 0) or 0
+        module = tf.get(ML_MODULE, "")
+        sequence = tf.get(ML_SEQUENCE, 0) or 0
 
-        # Calculate due date sequentially (chained from previous task)
-        due_date = None
-        if duration:
-            due_date = (current_date + timedelta(days=int(duration))).isoformat()
-            # Move the timeline forward — next task starts after this one
-            current_date = current_date + timedelta(days=int(duration))
+        if module in PARALLEL_MODULES:
+            # First parallel task: branch from the fork point
+            if parallel_date is None:
+                fork_seq = PARALLEL_MODULES[module]
+                parallel_date = date_at_sequence.get(fork_seq, current_date)
+            due_date = None
+            if duration:
+                due_date = (parallel_date + timedelta(days=int(duration))).isoformat()
+                parallel_date = parallel_date + timedelta(days=int(duration))
+        else:
+            # When leaving a parallel branch, resume from whichever is later
+            if parallel_date is not None:
+                current_date = max(current_date, parallel_date)
+                parallel_date = None
+            due_date = None
+            if duration:
+                due_date = (current_date + timedelta(days=int(duration))).isoformat()
+                current_date = current_date + timedelta(days=int(duration))
+            # Save checkpoint so parallel branches can fork from here
+            date_at_sequence[sequence] = current_date
 
         task_fields = {
             TASK_NAME: tf.get(ML_NAME, ""),
@@ -1571,7 +1604,8 @@ def inject_milestones(project_id, service_name, start_date=None):
             "fldgOATDg4qInH9ra": [tmpl.get("id")],    # TASK_MILESTONE_SOURCE
             TASK_MODULE: tf.get(ML_MODULE, ""),
             TASK_SEQUENCE: tf.get(ML_SEQUENCE, 0),
-            "fldoUn5h7WAJF0q7m": tf.get(ML_BUNDLE, ""),  # TASK_BUNDLE
+            # Bundle comes as a list from multiple select — extract first value
+            "fldoUn5h7WAJF0q7m": (tf.get(ML_BUNDLE, []) or [""])[0] if isinstance(tf.get(ML_BUNDLE), list) else tf.get(ML_BUNDLE, ""),  # TASK_BUNDLE
             TASK_STATUS: "Not Started",
             TASK_AUTHOR_VISIBLE: tf.get(ML_AUTHOR_VISIBLE, False),
             TASK_STAGE_DESC: tf.get(ML_STAGE_DESC, ""),

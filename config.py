@@ -87,7 +87,7 @@ INV_VOIDED = "fld0HxuwpBsAuGPYV"          # Voided (checkbox)
 # ============================================================
 
 ML_NAME = "fldVv3R64CckxKv4x"              # Milestone Name (singleLineText)
-ML_BUNDLE = "fldlaCzfR5ja7iRZx"            # Bundle (singleSelect, e.g. "Full Concierge")
+ML_BUNDLE = "fldlaCzfR5ja7iRZx"            # Bundle (multipleSelect, e.g. ["Full Concierge"])
 ML_MODULE = "fldCQ5KlURmNzHrLY"            # Module (singleLineText)
 ML_SEQUENCE = "fldbuD55qRo6Sx8Rn"          # Sequence Order (number)
 ML_DEFAULT_OWNER = "fldKaL79dEMzm2S4P"     # Default Owner (singleSelect)
@@ -213,26 +213,28 @@ TYPEFLOW_MSA_FLOW_ID = "33bbd513db99493ab3d2ec01566fead3"
 # This mapping translates between them.
 
 SERVICE_TO_BUNDLE = {
-    # Direct P&P services
+    # Publishing packages
     "Full Concierge": "Full Concierge",
-    "Full Concierge - Children's Book": "Full Concierge - Children's Book",
+    "Chapters — Signature": "Full Concierge",          # Same milestones as FC
+    "Chapters — Foundation": "Full Concierge",          # Same as FC minus Launch module (code filters)
     "Publish-Ready Concierge": "Publish-Ready Concierge",
     "Publish Ready Concierge": "Publish-Ready Concierge",
-    "Publishing Strategy Session": "Publishing Strategy Session",
-    "Navigator AI": "Navigator AI",
-    "Navigator": "Navigator AI",
-    "Launch Buddy AI": "Launch Buddy AI",
-    "Launch Buddy": "Launch Buddy AI",
-    "DTC Funnel": "DTC Funnel",
-    "Platform Studio": "Platform Studio",
-    "AI Edition": "AI Edition",
-    "Ebook Edition": "Ebook Edition",
+    "Children's Book Concierge": "Children's Book Concierge",
 
-    # Chapters services — map to the appropriate bundle
-    "Chapters — Foundation": "Full Concierge",
-    "Chapters — Signature": "Full Concierge",
-    "Chapters — Audiobook Production": "Full Concierge",
-    "Chapters — Launch Buddy": "Launch Buddy AI",
-    "Chapters — Full Launch Package": "Full Concierge",
-    "Chapters — AI Edition Chatbot": "AI Edition",
+    # Consulting & marketing
+    "Navigator": "Navigator",
+    "Launch Buddy": "Launch Buddy",
+    "DTC Funnel": "DTC Funnel",
+
+    # Add-on services (loaded as separate service on project)
+    "AI Edition": "AI Edition",
+    "Audiobook": "Audiobook",
+    "Ebook Edition": "Ebook Edition",
+    "CX Bundle": "CX Bundle",
+
+    # Add-ons (standalone)
+    "Illustration": "Illustration",
+    "Indexing": "Indexing",
+    "Photo Editing": "Photo Editing",
+    "Sensitivity Read": "Sensitivity Read",
 }
