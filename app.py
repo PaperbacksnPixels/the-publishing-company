@@ -275,10 +275,18 @@ def register_routes(app):
                 flash("Enter an email address.", "error")
                 return render_template("auth/forgot.html")
 
+            # Build the redirect URL — use the public domain if set,
+            # otherwise fall back to Flask's url_for (works in local dev)
+            public_url = os.environ.get("PUBLIC_URL", "").rstrip("/")
+            if public_url:
+                reset_redirect = f"{public_url}/reset-password"
+            else:
+                reset_redirect = url_for("reset_password", _external=True)
+
             # Supabase sends the email and handles the reset link
             result = supa_forgot(
                 email,
-                redirect_to=url_for("reset_password", _external=True),
+                redirect_to=reset_redirect,
             )
 
             # Always show a success message even on failure
