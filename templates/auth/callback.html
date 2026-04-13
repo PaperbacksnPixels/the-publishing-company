@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Redirecting... — The Publishing Company{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+  <h1>One moment...</h1>
+  <p>Processing your link.</p>
+</div>
+
+{#
+  This page handles the Supabase IMPLICIT flow where the token
+  arrives as a URL hash fragment (#access_token=xxx&type=recovery).
+
+  Flask can't see hash fragments (browsers keep them local), so
+  this JS reads the fragment and redirects to the right page.
+
+  If there's no hash fragment, the user probably got here by
+  accident — send them to login.
+#}
+<script>
+  (function () {
+    var hash = window.location.hash.substring(1);
+    var params = new URLSearchParams(hash);
+    var token = params.get('access_token');
+    var type = params.get('type');
+
+    if (token && type === 'recovery') {
+      // Password reset — send to reset page with the token
+      window.location.href = '/reset-password?token=' + encodeURIComponent(token);
+    } else if (token) {
+      // Some other auth flow (email confirm, etc.) — try logging in
+      window.location.href = '/login';
+    } else {
+      // No token at all — nothing to do here
+      window.location.href = '/login';
+    }
+  })();
+</script>
+{% endblock %}

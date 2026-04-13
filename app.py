@@ -265,6 +265,47 @@ def register_routes(app):
         flash("You've been logged out.", "info")
         return redirect(url_for("login"))
 
+    @app.route("/auth/callback")
+    def auth_callback():
+        """
+        Catch-all for Supabase auth redirects (password reset, email
+        confirm, magic links, etc.).
+
+        Supabase can land users here two ways:
+          - PKCE flow:     /auth/callback?code=xxx
+          - Implicit flow: /auth/callback#access_token=xxx&type=recovery
+
+        For PKCE, we exchange the code server-side. For implicit, a small
+        JS snippet reads the hash and redirects to the right page.
+
+        We detect the flow type and send the user to the correct page
+        (e.g. /reset-password) with a working token.
+        """
+        code = request.args.get("code")
+        error = request.args.get("error")
+        error_description = request.args.get("error_description", "")
+
+        # --- Error from Supabase ---
+        if error:
+            flash(f"Auth error: {error_description or error}", "error")
+            return redirect(url_for("login"))
+
+        # --- PKCE flow: exchange ?code= for an access token ---
+        if code:
+            from auth.supabase_client import exchange_code_for_session
+            result = exchange_code_for_session(code)
+            if result.get("success"):
+                # Got a token — send to reset page with it as a query param
+                return redirect(url_for("reset_password", token=result["access_token"]))
+            else:
+                flash("Your reset link may have expired. Please request a new one.", "error")
+                return redirect(url_for("forgot_password"))
+
+        # --- Implicit flow: hash fragment has the token ---
+        # The browser keeps #fragments local, so Flask can't see them.
+        # Render a tiny JS page that reads the hash and redirects.
+        return render_template("auth/callback.html")
+
     @app.route("/forgot-password", methods=["GET", "POST"])
     def forgot_password():
         """Trigger Supabase to send a password reset email."""
@@ -275,13 +316,13 @@ def register_routes(app):
                 flash("Enter an email address.", "error")
                 return render_template("auth/forgot.html")
 
-            # Build the redirect URL — use the public domain if set,
-            # otherwise fall back to Flask's url_for (works in local dev)
+            # Build the redirect URL — point to /auth/callback which
+            # handles both PKCE and implicit token flows
             public_url = os.environ.get("PUBLIC_URL", "").rstrip("/")
             if public_url:
-                reset_redirect = f"{public_url}/reset-password"
+                reset_redirect = f"{public_url}/auth/callback"
             else:
-                reset_redirect = url_for("reset_password", _external=True)
+                reset_redirect = url_for("auth_callback", _external=True)
 
             # Supabase sends the email and handles the reset link
             result = supa_forgot(
@@ -302,24 +343,15 @@ def register_routes(app):
     @app.route("/reset-password", methods=["GET", "POST"])
     def reset_password():
         """
-        Landing page after user clicks the reset email link.
+        Password reset form.
 
-        Supabase can redirect here two ways depending on auth config:
-          1. PKCE flow (newer): /reset-password?code=xxx
-             → We exchange the code for an access_token server-side
-          2. Implicit flow (older): /reset-password#access_token=xxx
-             → JS reads the fragment and puts it in a hidden field
-
-        We handle both so it works regardless of Supabase version.
+        The user arrives here from /auth/callback with a ?token= param,
+        or directly with a #access_token= hash fragment (legacy).
         """
-        # --- PKCE flow: exchange ?code= for an access token on GET ---
-        pkce_code = request.args.get("code")
-        pkce_token = None
-        if pkce_code:
-            from auth.supabase_client import exchange_code_for_session
-            session_result = exchange_code_for_session(pkce_code)
-            if session_result.get("success"):
-                pkce_token = session_result["access_token"]
+        # Token can come from:
+        #   1. ?token=xxx (from /auth/callback PKCE exchange)
+        #   2. #access_token=xxx (legacy implicit — JS handles this)
+        token_from_callback = request.args.get("token", "")
 
         if request.method == "POST":
             # Try PKCE token from hidden field first, then legacy hash token
@@ -371,8 +403,8 @@ def register_routes(app):
             )
             return redirect(url_for("login"))
 
-        # GET — show the form (pass PKCE token if we got one)
-        return render_template("auth/reset.html", pkce_token=pkce_token or "")
+        # GET — show the form (pass token from callback if we have one)
+        return render_template("auth/reset.html", pkce_token=token_from_callback or "")
 
     @app.route("/dashboard")
     @login_required
