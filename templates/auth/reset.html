@@ -9,18 +9,7 @@
     Choose a new password for your account. It must be at least 8 characters.
   </p>
 
-  {#
-    This form POSTs to /reset-password with three fields:
-      - access_token (hidden, filled in by JavaScript below)
-      - new_password
-      - confirm_password
-
-    The JavaScript at the bottom of this template reads the access_token
-    from the URL fragment (#access_token=...) that Supabase added to the
-    reset link in the email, then stuffs it into the hidden form field
-    so it gets sent with the form submission.
-  #}
-  <form method="POST" action="{{ url_for('reset_password') }}" id="reset-form">
+  <form method="POST" action="{{ url_for('reset_password') }}" id="reset-form" class="auth-form">
     <input type="hidden" name="access_token" id="access_token" value="{{ pkce_token }}">
 
     <label for="new_password">New password</label>
@@ -30,6 +19,7 @@
       id="new_password"
       required
       minlength="8"
+      autofocus
       autocomplete="new-password"
     >
 
@@ -43,18 +33,13 @@
       autocomplete="new-password"
     >
 
-    {#
-      This error message is hidden by default. The JavaScript shows it
-      if the user arrived here without a valid token in the URL (e.g.
-      they navigated to /reset-password directly instead of clicking
-      the email link).
-    #}
-    <p id="token-error" class="error-message" style="display:none;">
+    {# Error shown if user arrives without a valid token #}
+    <p id="token-error" style="display:none; color: #c0392b; font-size: 0.9rem; margin: 0;">
       This page needs to be opened from the password reset email link.
       <a href="{{ url_for('forgot_password') }}">Request a new one</a>.
     </p>
 
-    <button type="submit" id="submit-btn">Update password</button>
+    <button type="submit" id="submit-btn" class="btn btn-primary">Update password</button>
   </form>
 
   <p class="auth-footer">
@@ -62,47 +47,26 @@
   </p>
 </div>
 
-{#
-  This script runs when the page loads. Its one job is to pull the
-  access_token out of the URL fragment (everything after the #) and
-  put it into the hidden form field so it gets submitted.
-
-  WHY: Supabase's reset email sends users to a URL that looks like:
-    https://yourdomain.com/reset-password#access_token=eyJ...&type=recovery
-
-  The part after the # is the "URL fragment". Browsers keep fragments
-  local — they never send them to the server. That means our Flask
-  backend CANNOT see the token directly. This JS grabs it client-side
-  and puts it in a normal form field so POST will send it up.
-#}
 <script>
   (function () {
-    // Grab the hash (includes the leading "#") and strip the "#"
     var hash = window.location.hash.substring(1);
-
-    // Supabase puts params in the hash like a query string:
-    //   access_token=xxx&refresh_token=yyy&type=recovery
-    // URLSearchParams can parse this for us.
     var params = new URLSearchParams(hash);
     var token = params.get('access_token');
     var type = params.get('type');
 
-    // Check if we already have a token (from PKCE flow, set by server)
+    // Check if we already have a token (from callback or PKCE)
     var existingToken = document.getElementById('access_token').value;
 
-    // If we got a recovery token from the hash, put it in the hidden field
     if (token && type === 'recovery') {
       document.getElementById('access_token').value = token;
     } else if (!existingToken) {
-      // No token from hash OR server — show the error message and disable the form
       document.getElementById('token-error').style.display = 'block';
       document.getElementById('submit-btn').disabled = true;
       document.getElementById('new_password').disabled = true;
       document.getElementById('confirm_password').disabled = true;
     }
-    // If existingToken is set (PKCE), the form is already good to go
 
-    // Simple client-side check: passwords must match before submit
+    // Client-side password match check
     document.getElementById('reset-form').addEventListener('submit', function (e) {
       var p1 = document.getElementById('new_password').value;
       var p2 = document.getElementById('confirm_password').value;
