@@ -36,6 +36,7 @@ PU_LINKED_PARTNER = "fld5DVlAzLfIcl0sd"     # Linked Partner (link to Partners)
 PU_LINKED_INTERNAL = "fldybZzi8kjtYXQnD"    # Linked Internal Team (link to Internal Team)
 PU_ACTIVE = "fldUWIMzseQk1tXkT"             # Active (checkbox)
 PU_NOTES = "fldYGdd8bI1fWPRqU"              # Notes (multilineText)
+PU_DISPLAY_NAME = "fldI0NFG7tyka9CFn"        # Display Name (singleLineText)
 
 # ============================================================
 # PROJECTS — Field IDs

@@ -27,6 +27,7 @@ from config import (
     PU_LINKED_PARTNER,
     PU_LINKED_INTERNAL,
     PU_ACTIVE,
+    PU_DISPLAY_NAME,
 )
 
 
@@ -77,6 +78,7 @@ def get_portal_user(email):
         "portal_user_id": record.get("id"),
         "email": fields.get(PU_EMAIL),
         "role": fields.get(PU_ROLE),
+        "display_name": fields.get(PU_DISPLAY_NAME, ""),
         "linked_author_id": first_link(PU_LINKED_AUTHOR),
         "linked_partner_id": first_link(PU_LINKED_PARTNER),
         "linked_internal_id": first_link(PU_LINKED_INTERNAL),

@@ -241,6 +241,7 @@ def register_routes(app):
             session["linked_author_id"] = portal_user["linked_author_id"]
             session["linked_partner_id"] = portal_user["linked_partner_id"]
             session["linked_internal_id"] = portal_user["linked_internal_id"]
+            session["display_name"] = portal_user.get("display_name", "")
             session.permanent = True  # 31-day default lifetime
 
             flash(f"Welcome back!", "success")
@@ -540,14 +541,31 @@ def register_routes(app):
     def command_center(tab="tasks"):
         """
         Command Center — Julie's ops dashboard.
-        Tabbed layout: Tasks | Projects | Financials | Files
+        Tabbed layout: Tasks | Projects | Partners
         """
+        # Greeting: prefer Display Name from Airtable, fall back to email prefix
+        first_name = (
+            session.get("display_name")
+            or (session.get("email", "").split("@")[0].capitalize() if session.get("email") else "")
+            or "there"
+        )
+
+        # Priority tasks: overdue, due today, or needing action — shown on every tab
+        all_tasks = get_all_tasks()
+        priority_tasks = [
+            t for t in all_tasks
+            if t["is_overdue"]
+            or (t.get("next_step") and t["next_step"].get("action"))
+            or t["is_due_soon"]
+        ]
+
         if tab == "tasks":
-            tasks = get_all_tasks()
             return render_template(
                 "command_center/tasks.html",
                 tab=tab,
-                tasks=tasks,
+                tasks=all_tasks,
+                first_name=first_name,
+                priority_tasks=priority_tasks,
             )
         elif tab == "projects":
             projects = get_all_projects()
@@ -555,6 +573,8 @@ def register_routes(app):
                 "command_center/projects.html",
                 tab=tab,
                 projects=projects,
+                first_name=first_name,
+                priority_tasks=priority_tasks,
             )
         elif tab == "financials":
             invoices = get_all_invoices()
@@ -571,6 +591,8 @@ def register_routes(app):
                 total_revenue=total_revenue,
                 total_outstanding=total_outstanding,
                 total_overdue=total_overdue,
+                first_name=first_name,
+                priority_tasks=priority_tasks,
             )
         elif tab == "partners":
             partners = get_all_partners()
@@ -578,6 +600,8 @@ def register_routes(app):
                 "command_center/partners.html",
                 tab=tab,
                 partners=partners,
+                first_name=first_name,
+                priority_tasks=priority_tasks,
             )
 
         # Unknown tab — fall back to tasks
