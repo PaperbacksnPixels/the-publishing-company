@@ -21,7 +21,7 @@
     so it gets sent with the form submission.
   #}
   <form method="POST" action="{{ url_for('reset_password') }}" id="reset-form">
-    <input type="hidden" name="access_token" id="access_token" value="">
+    <input type="hidden" name="access_token" id="access_token" value="{{ pkce_token }}">
 
     <label for="new_password">New password</label>
     <input
@@ -87,16 +87,20 @@
     var token = params.get('access_token');
     var type = params.get('type');
 
-    // If we got a recovery token, put it in the hidden field
+    // Check if we already have a token (from PKCE flow, set by server)
+    var existingToken = document.getElementById('access_token').value;
+
+    // If we got a recovery token from the hash, put it in the hidden field
     if (token && type === 'recovery') {
       document.getElementById('access_token').value = token;
-    } else {
-      // No token — show the error message and disable the form
+    } else if (!existingToken) {
+      // No token from hash OR server — show the error message and disable the form
       document.getElementById('token-error').style.display = 'block';
       document.getElementById('submit-btn').disabled = true;
       document.getElementById('new_password').disabled = true;
       document.getElementById('confirm_password').disabled = true;
     }
+    // If existingToken is set (PKCE), the form is already good to go
 
     // Simple client-side check: passwords must match before submit
     document.getElementById('reset-form').addEventListener('submit', function (e) {

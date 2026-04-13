@@ -296,20 +296,28 @@ def register_routes(app):
         """
         Landing page after user clicks the reset email link.
 
-        GET: Renders reset.html. A small JS snippet in that template
-             reads the access_token out of the URL fragment (#access_token=...)
-             that Supabase added to the reset link, and puts it into a
-             hidden form field. Fragments are browser-only — Flask never
-             sees them — which is why we need JS to do this hand-off.
+        Supabase can redirect here two ways depending on auth config:
+          1. PKCE flow (newer): /reset-password?code=xxx
+             → We exchange the code for an access_token server-side
+          2. Implicit flow (older): /reset-password#access_token=xxx
+             → JS reads the fragment and puts it in a hidden field
 
-        POST: The form submits with three fields:
-                - access_token (hidden, filled in by JS)
-                - new_password
-                - confirm_password
-              We validate them, then call Supabase to update the password.
+        We handle both so it works regardless of Supabase version.
         """
+        # --- PKCE flow: exchange ?code= for an access token on GET ---
+        pkce_code = request.args.get("code")
+        pkce_token = None
+        if pkce_code:
+            from auth.supabase_client import exchange_code_for_session
+            session_result = exchange_code_for_session(pkce_code)
+            if session_result.get("success"):
+                pkce_token = session_result["access_token"]
+
         if request.method == "POST":
-            access_token = request.form.get("access_token", "").strip()
+            # Try PKCE token from hidden field first, then legacy hash token
+            access_token = (
+                request.form.get("access_token", "").strip()
+            )
             new_password = request.form.get("new_password", "")
             confirm_password = request.form.get("confirm_password", "")
 
@@ -355,8 +363,8 @@ def register_routes(app):
             )
             return redirect(url_for("login"))
 
-        # GET — show the form
-        return render_template("auth/reset.html")
+        # GET — show the form (pass PKCE token if we got one)
+        return render_template("auth/reset.html", pkce_token=pkce_token or "")
 
     @app.route("/dashboard")
     @login_required

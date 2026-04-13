@@ -184,6 +184,65 @@ def forgot_password(email, redirect_to=None):
 
 
 # ============================================================
+# EXCHANGE CODE FOR SESSION (PKCE flow)
+# ============================================================
+
+def exchange_code_for_session(code):
+    """
+    Exchange a PKCE authorization code for an access token.
+
+    Newer Supabase versions use PKCE instead of the implicit flow.
+    The reset email link redirects with ?code=xxx instead of
+    #access_token=xxx. We exchange that code server-side to get
+    a real access token we can use to update the password.
+    """
+    url, _ = _get_config()
+    if not url:
+        return {"success": False, "error": "Supabase not configured"}
+
+    endpoint = f"{url}/auth/v1/token?grant_type=pkce"
+
+    try:
+        resp = requests.post(
+            endpoint,
+            headers=_auth_headers(),
+            json={"auth_code": code, "code_verifier": ""},
+            timeout=10,
+        )
+
+        data = resp.json()
+
+        if resp.status_code == 200 and "access_token" in data:
+            return {
+                "success": True,
+                "access_token": data["access_token"],
+            }
+
+        # PKCE with empty code_verifier didn't work — try as magic link
+        # Some Supabase versions treat recovery codes differently
+        endpoint2 = f"{url}/auth/v1/verify"
+        resp2 = requests.post(
+            endpoint2,
+            headers=_auth_headers(),
+            json={"type": "recovery", "token": code},
+            timeout=10,
+        )
+
+        data2 = resp2.json()
+        if resp2.status_code == 200 and "access_token" in data2:
+            return {
+                "success": True,
+                "access_token": data2["access_token"],
+            }
+
+        error = data.get("error_description") or data.get("msg") or "Code exchange failed"
+        return {"success": False, "error": error}
+
+    except requests.RequestException as e:
+        return {"success": False, "error": str(e)}
+
+
+# ============================================================
 # RESET PASSWORD (after user clicks reset email link)
 # ============================================================
 
