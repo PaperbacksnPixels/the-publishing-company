@@ -1,0 +1,66 @@
+{% extends "command_center/base_cc.html" %}
+
+{% block cc_content %}
+{% set active_partners = partners|selectattr('status', 'equalto', 'Active')|list %}
+{% set task_partners = partners|selectattr('type', 'equalto', 'Task Partner')|list %}
+{% set channel_partners = partners|selectattr('type', 'equalto', 'Channel Partner')|list %}
+
+<div class="cc-summary">
+  <div class="cc-summary-card">
+    <h3>Active</h3>
+    <div class="number">{{ active_partners|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>Task Partners</h3>
+    <div class="number">{{ task_partners|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>Channel Partners</h3>
+    <div class="number">{{ channel_partners|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>Total</h3>
+    <div class="number">{{ partners|length }}</div>
+  </div>
+</div>
+
+<table class="cc-table">
+  <thead>
+    <tr>
+      <th>Partner</th>
+      <th>Type</th>
+      <th>Specialties</th>
+      <th>Email</th>
+      <th>Status</th>
+      <th>Tasks</th>
+      <th>Projects</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in partners %}
+      <tr>
+        <td>
+          <a href="{{ url_for('command_center_partner_detail', partner_id=p.id) }}"><strong>{{ p.name }}</strong></a>
+          {% if p.bio %}<br><small>{{ p.bio[:80] }}{% if p.bio|length > 80 %}...{% endif %}</small>{% endif %}
+        </td>
+        <td>
+          <span class="status-badge status-{{ p.type|lower|replace(' ', '-') }}">{{ p.type }}</span>
+        </td>
+        <td>
+          {% if p.specialties %}
+            {{ p.specialties|join(', ') }}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td>{{ p.email or '—' }}</td>
+        <td>
+          <span class="status-badge status-{{ p.status|lower }}">{{ p.status }}</span>
+        </td>
+        <td>{{ p.task_count }}</td>
+        <td>{{ p.project_count }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

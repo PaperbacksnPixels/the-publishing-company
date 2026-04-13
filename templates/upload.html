@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Upload file — The Publishing Company{% endblock %}
+
+{% block content %}
+<div class="project-detail">
+  <p class="back-link">
+    <a href="{{ url_for('dashboard') }}">← Back to dashboard</a>
+  </p>
+
+  <h1>Upload file</h1>
+  <p class="subtitle">Task: {{ task_name }}</p>
+
+  {# ---- Existing files on this task ---- #}
+  {% if files %}
+    <div class="card">
+      <h2>File history</h2>
+      <ul class="milestone-list">
+        {% for f in files %}
+          <li class="milestone">
+            <div class="milestone-header">
+              <span class="milestone-name">v{{ f.version }} — {{ f.file_name }}</span>
+              <span class="status-badge status-{{ f.direction|lower|replace(' ', '-') }}">{{ f.direction }}</span>
+            </div>
+            <div class="milestone-meta">
+              {{ f.uploaded_by }} &middot; {{ f.upload_date or 'no date' }}
+              {% if f.file_type %} &middot; {{ f.file_type }}{% endif %}
+            </div>
+            {% if f.notes %}
+              <p class="milestone-desc">{{ f.notes }}</p>
+            {% endif %}
+            {% if f.has_file %}
+              <a href="{{ f.download_url }}" class="document-link" target="_blank" rel="noopener">
+                Download {{ f.original_filename }} →
+              </a>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  {# ---- Upload form ---- #}
+  <div class="card">
+    <h2>Add a new file</h2>
+
+    <form method="POST" enctype="multipart/form-data">
+      {# Hidden fields to track context #}
+      <input type="hidden" name="project_id" value="{{ project_id }}">
+
+      <div style="margin-bottom: 1rem;">
+        <label for="file"><strong>Choose file</strong></label><br>
+        <input type="file" name="file" id="file" required>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label for="file_type"><strong>File type</strong></label><br>
+        <select name="file_type" id="file_type">
+          <option value="Manuscript">Manuscript</option>
+          <option value="Edited Manuscript">Edited Manuscript</option>
+          <option value="Cover Design">Cover Design</option>
+          <option value="Interior Layout">Interior Layout</option>
+          <option value="Author Corrections">Author Corrections</option>
+          <option value="Proofread">Proofread</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label for="direction"><strong>Direction</strong></label><br>
+        <select name="direction" id="direction">
+          {% if role == "Task Partner" %}
+            <option value="From Partner" selected>From me (deliverable)</option>
+          {% elif role == "Author" %}
+            <option value="To Partner" selected>To partner (source file)</option>
+            <option value="Author Review">Author review (corrections)</option>
+          {% else %}
+            <option value="To Partner">To partner (source file)</option>
+            <option value="From Partner">From partner (deliverable)</option>
+            <option value="Author Review">Author review (corrections)</option>
+          {% endif %}
+        </select>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label for="notes"><strong>Notes</strong> (optional)</label><br>
+        <textarea name="notes" id="notes" rows="3" style="width: 100%;"></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Upload file</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

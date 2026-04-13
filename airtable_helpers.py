@@ -198,6 +198,37 @@ def update_record(table_id, record_id, fields_dict):
 # 4. CREATE A RECORD
 # ============================================================
 
+def delete_record(table_id, record_id):
+    """
+    Delete a single record from a table.
+
+    Args:
+        table_id: Which table the record is in
+        record_id: The record to delete (e.g. "recXXXXX")
+
+    Returns True on success, False on error.
+    """
+    headers = _get_headers()
+    if not headers:
+        return False
+
+    url = f"{_get_base_url(table_id)}/{record_id}"
+
+    try:
+        resp = requests.delete(url, headers=headers, timeout=10)
+
+        if resp.status_code != 200:
+            print(f"ERROR deleting record {record_id}: {resp.status_code}")
+            print(f"  {resp.text[:200]}")
+            return False
+
+        return True
+
+    except requests.RequestException as e:
+        print(f"ERROR: Could not reach Airtable: {e}")
+        return False
+
+
 def create_record(table_id, fields_dict):
     """
     Create a new record in a table.

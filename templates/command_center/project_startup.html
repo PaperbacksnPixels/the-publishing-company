@@ -1,0 +1,235 @@
+{% extends "command_center/base_cc.html" %}
+
+{% block cc_content %}
+<a href="{{ url_for('command_center', tab='projects') }}" class="back-link">&larr; All Projects</a>
+
+<h2>Project Startup</h2>
+<p class="subtitle-text">Create a new project or activate an existing lead. Milestones are auto-injected from the template library based on the service you pick.</p>
+
+{# ---- Tab toggle: New vs Activate ---- #}
+<div class="startup-toggle">
+  <button class="toggle-btn active" id="btnNew" onclick="showStartupTab('new')">New Project</button>
+  <button class="toggle-btn" id="btnActivate" onclick="showStartupTab('activate')">Activate a Lead</button>
+</div>
+
+{# ============================================================
+   TAB 1: Create New Project
+   ============================================================ #}
+<div id="tabNew">
+  <form method="POST" class="startup-form">
+    <input type="hidden" name="mode" value="new">
+
+    <div class="startup-card">
+      <div class="form-grid-startup">
+        <label for="project_name">Project Name</label>
+        <input type="text" name="project_name" id="project_name" class="form-input"
+               placeholder="e.g. Mitchell — Full Concierge — 2026" required>
+
+        <label for="author_id">Author</label>
+        <select name="author_id" id="author_id" class="form-input">
+          <option value="">— Select author —</option>
+          {% for a in authors %}
+            <option value="{{ a.id }}">{{ a.name }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="service">Service</label>
+        <select name="service" id="service" class="form-input" onchange="showMilestonePreview(this.value)">
+          <option value="">— Select service —</option>
+          {% for s in services %}
+            <option value="{{ s }}">{{ s }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="start_date">Start Date</label>
+        <input type="date" name="start_date" id="start_date" class="form-input"
+               value="{{ today }}">
+      </div>
+
+      <div id="milestonePreview" class="milestone-preview" style="display:none;">
+        <p class="preview-label">This service will inject milestones from the template library.</p>
+      </div>
+
+      <div class="startup-actions">
+        <button type="submit" class="btn-startup">Create Project &amp; Inject Milestones</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+{# ============================================================
+   TAB 2: Activate Existing Lead
+   ============================================================ #}
+<div id="tabActivate" style="display: none;">
+  {% if leads %}
+    <form method="POST" class="startup-form">
+      <input type="hidden" name="mode" value="activate">
+
+      <div class="startup-card">
+        <div class="form-grid-startup">
+          <label for="project_id">Select Lead</label>
+          <select name="project_id" id="project_id" class="form-input" required>
+            <option value="">— Pick a lead to activate —</option>
+            {% for p in leads %}
+              <option value="{{ p.id }}">{{ p.name }} {% if p.author_name %}({{ p.author_name }}){% endif %} {% if p.service %}— {{ p.service }}{% endif %}</option>
+            {% endfor %}
+          </select>
+
+          <label for="activate_service">Service</label>
+          <select name="activate_service" id="activate_service" class="form-input">
+            <option value="">— Keep existing or pick new —</option>
+            {% for s in services %}
+              <option value="{{ s }}">{{ s }}</option>
+            {% endfor %}
+          </select>
+
+          <label for="activate_start_date">Start Date</label>
+          <input type="date" name="activate_start_date" id="activate_start_date" class="form-input"
+                 value="{{ today }}">
+        </div>
+
+        <div class="startup-actions">
+          <button type="submit" class="btn-startup">Activate &amp; Inject Milestones</button>
+        </div>
+      </div>
+    </form>
+  {% else %}
+    <div class="startup-card">
+      <p class="empty-state">No leads in the pipeline. Create a new project instead.</p>
+    </div>
+  {% endif %}
+</div>
+
+<style>
+  .back-link {
+    display: inline-block;
+    margin-bottom: 1rem;
+    color: #666;
+    text-decoration: none;
+    font-size: 0.9rem;
+  }
+  .back-link:hover { color: #222; }
+
+  .subtitle-text {
+    color: #666;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+  }
+
+  /* Toggle */
+  .startup-toggle {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1.5rem;
+  }
+  .toggle-btn {
+    padding: 0.5rem 1.25rem;
+    border: 2px solid #222;
+    background: #fff;
+    font-weight: bold;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  .toggle-btn:first-child { border-right: none; }
+  .toggle-btn.active {
+    background: #222;
+    color: #fff;
+  }
+  .toggle-btn:hover:not(.active) { background: #f5f5f0; }
+
+  /* Form card */
+  .startup-card {
+    border: 2px solid #222;
+    padding: 1.5rem;
+    background: #fff;
+    max-width: 600px;
+  }
+  .form-grid-startup {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 0.75rem 1rem;
+    align-items: center;
+  }
+  .form-grid-startup label {
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #666;
+  }
+  .form-input {
+    padding: 0.5rem;
+    border: 2px solid #ddd;
+    font-size: 0.9rem;
+    font-family: inherit;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .form-input:focus { border-color: #222; outline: none; }
+
+  /* Milestone preview hint */
+  .milestone-preview {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: #ebf5fb;
+    border: 2px solid #3498db;
+  }
+  .preview-label {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #2980b9;
+    font-weight: bold;
+  }
+
+  /* Submit button */
+  .startup-actions {
+    margin-top: 1.5rem;
+  }
+  .btn-startup {
+    background: #27ae60;
+    color: #fff;
+    border: 2px solid #222;
+    padding: 12px 28px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 #222;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-startup:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 #222;
+  }
+
+  .empty-state { color: #999; font-style: italic; }
+</style>
+
+<script>
+  function showStartupTab(tab) {
+    var tabNew = document.getElementById('tabNew');
+    var tabActivate = document.getElementById('tabActivate');
+    var btnNew = document.getElementById('btnNew');
+    var btnActivate = document.getElementById('btnActivate');
+
+    if (tab === 'activate') {
+      tabNew.style.display = 'none';
+      tabActivate.style.display = 'block';
+      btnNew.classList.remove('active');
+      btnActivate.classList.add('active');
+    } else {
+      tabNew.style.display = 'block';
+      tabActivate.style.display = 'none';
+      btnActivate.classList.remove('active');
+      btnNew.classList.add('active');
+    }
+  }
+
+  function showMilestonePreview(service) {
+    var preview = document.getElementById('milestonePreview');
+    if (service) {
+      preview.style.display = 'block';
+    } else {
+      preview.style.display = 'none';
+    }
+  }
+</script>
+{% endblock %}

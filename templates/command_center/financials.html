@@ -1,0 +1,68 @@
+{% extends "command_center/base_cc.html" %}
+
+{% block cc_content %}
+<div class="cc-summary">
+  <div class="cc-summary-card">
+    <h3>Total Collected</h3>
+    <div class="number success">${{ '{:,.0f}'.format(total_revenue) }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>Outstanding</h3>
+    <div class="number {% if total_outstanding > 0 %}warning{% endif %}">${{ '{:,.0f}'.format(total_outstanding) }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>Overdue</h3>
+    <div class="number {% if total_overdue > 0 %}danger{% endif %}">${{ '{:,.0f}'.format(total_overdue) }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>Invoices</h3>
+    <div class="number">{{ invoices|length }}</div>
+  </div>
+</div>
+
+<table class="cc-table">
+  <thead>
+    <tr>
+      <th>Invoice</th>
+      <th>Project</th>
+      <th>Type</th>
+      <th>Amount</th>
+      <th>Outstanding</th>
+      <th>Due</th>
+      <th>Status</th>
+      <th>Stripe</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for inv in invoices %}
+      <tr class="{% if inv.is_overdue %}overdue{% endif %}">
+        <td><strong>{{ inv.name }}</strong></td>
+        <td>{{ inv.project_name }}</td>
+        <td>{{ inv.type or '—' }}</td>
+        <td>${{ '{:,.0f}'.format(inv.amount or 0) }}</td>
+        <td>
+          {% if (inv.outstanding or 0) > 0 %}
+            <strong>${{ '{:,.0f}'.format(inv.outstanding) }}</strong>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td>
+          {{ inv.due_date or '—' }}
+          {% if inv.is_overdue %}<br><small style="color: #c0392b;">OVERDUE</small>{% endif %}
+        </td>
+        <td>
+          <span class="status-badge status-{{ inv.payment_status|lower|replace(' ', '-') }}">{{ inv.payment_status or 'Pending' }}</span>
+        </td>
+        <td>
+          {% if inv.stripe_url %}
+            <a href="{{ inv.stripe_url }}" target="_blank" rel="noopener">View →</a>
+          {% else %}
+            —
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

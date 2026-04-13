@@ -1,0 +1,486 @@
+{% extends "command_center/base_cc.html" %}
+
+{% block cc_content %}
+{# ---- Group projects by pipeline stage ---- #}
+{% set stages = [
+  ('Lead', 'lead'),
+  ('Discovery', 'discovery'),
+  ('Proposal', 'proposal'),
+  ('Contract Sent', 'contract-sent'),
+  ('Signed', 'signed'),
+] %}
+
+{# Pre-filter projects into each stage #}
+{% set pipeline = {} %}
+{% for stage_name, stage_key in stages %}
+  {% set _ = pipeline.update({stage_key: projects|selectattr('status', 'equalto', stage_name)|list}) %}
+{% endfor %}
+{% set on_hold = projects|selectattr('status', 'equalto', 'On Hold')|list %}
+
+{# ---- Summary cards ---- #}
+<div class="cc-summary">
+  <div class="cc-summary-card">
+    <h3>Pipeline</h3>
+    <div class="number warning">{{ (pipeline['lead'] + pipeline['discovery'] + pipeline['proposal'] + pipeline['contract-sent'] + pipeline['signed'])|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>Active</h3>
+    <div class="number">{{ pipeline['active']|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>Complete</h3>
+    <div class="number success">{{ pipeline['complete']|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>Total</h3>
+    <div class="number">{{ projects|length }}</div>
+  </div>
+</div>
+
+{# ---- View toggle ---- #}
+<div class="view-toggle">
+  <button class="toggle-btn active" id="btnTable" onclick="showView('table')">Table</button>
+  <button class="toggle-btn" id="btnPipeline" onclick="showView('pipeline')">Pipeline</button>
+</div>
+
+{# ============================================================
+   TABLE VIEW (default)
+   ============================================================ #}
+<div id="tableView">
+  <table class="cc-table">
+    <thead>
+      <tr>
+        <th>Project</th>
+        <th>Author</th>
+        <th>Service</th>
+        <th>Status</th>
+        <th>Contract</th>
+        <th>Deposit</th>
+        <th>Revenue</th>
+        <th>Tasks</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in projects %}
+        <tr>
+          <td><a href="{{ url_for('command_center_project_detail', project_id=p.id) }}"><strong>{{ p.name }}</strong></a></td>
+          <td>{{ p.author_name or '—' }}</td>
+          <td>{{ p.service or '—' }}</td>
+          <td>
+            <span class="status-badge status-{{ p.status|lower|replace(' ', '-') }}">{{ p.status }}</span>
+          </td>
+          <td>
+            {% if p.contract_status %}
+              <span class="status-badge status-{{ p.contract_status|lower|replace(' ', '-') }}">{{ p.contract_status }}</span>
+            {% elif p.status in ['Lead', 'Active', 'Discovery', 'Proposal'] %}
+              <button class="btn-send-doc"
+                      onclick="sendSOW('{{ p.id }}', this)"
+                      title="Generate SOW and send for signature">
+                Generate SOW
+              </button>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>{% if p.deposit_paid %}Paid{% else %}Pending{% endif %}</td>
+          <td>${{ '{:,.0f}'.format(p.total_collected or 0) }} / ${{ '{:,.0f}'.format(p.project_fee or 0) }}</td>
+          <td>{{ p.total_tasks }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# ============================================================
+   PIPELINE VIEW (kanban board)
+   ============================================================ #}
+<div id="pipelineView" style="display: none;">
+  <div class="pipeline-board">
+    {% for stage_name, stage_key in stages %}
+      {% set stage_projects = pipeline[stage_key] %}
+      <div class="pipeline-col">
+        <div class="pipeline-col-header pipeline-header-{{ stage_key }}">
+          <span class="pipeline-stage-name">{{ stage_name }}</span>
+          <span class="pipeline-count">{{ stage_projects|length }}</span>
+        </div>
+        <div class="pipeline-col-body">
+          {% for p in stage_projects %}
+            <a href="{{ url_for('command_center_project_detail', project_id=p.id) }}" class="pipeline-card">
+              <div class="pipeline-card-title">{{ p.name }}</div>
+              <div class="pipeline-card-meta">{{ p.author_name or 'No author' }}</div>
+              <div class="pipeline-card-meta">{{ p.service or '' }}</div>
+              {% if p.deposit_paid %}
+                <div class="pipeline-card-badge">
+                  <span class="pipeline-deposit-paid">Deposit Paid</span>
+                </div>
+              {% endif %}
+            </a>
+          {% else %}
+            <div class="pipeline-empty">—</div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  {# Show On Hold projects separately if any #}
+  {% if on_hold %}
+    <div class="on-hold-section">
+      <h4>On Hold ({{ on_hold|length }})</h4>
+      {% for p in on_hold %}
+        <a href="{{ url_for('command_center_project_detail', project_id=p.id) }}" class="pipeline-card pipeline-card-hold">
+          <div class="pipeline-card-title">{{ p.name }}</div>
+          <div class="pipeline-card-meta">{{ p.author_name or '' }} &middot; {{ p.service or '' }}</div>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+
+<style>
+  /* ---- View toggle buttons ---- */
+  .view-toggle {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1.5rem;
+  }
+  .toggle-btn {
+    padding: 0.5rem 1.25rem;
+    border: 2px solid #222;
+    background: #fff;
+    font-weight: bold;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  .toggle-btn:first-child { border-right: none; }
+  .toggle-btn.active {
+    background: #222;
+    color: #fff;
+  }
+  .toggle-btn:hover:not(.active) {
+    background: #f5f5f0;
+  }
+
+  /* ---- Pipeline board (kanban) ---- */
+  .pipeline-board {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+  }
+
+  /* Each column */
+  .pipeline-col {
+    flex: 1;
+    min-width: 160px;
+    max-width: 220px;
+  }
+  .pipeline-col-header {
+    padding: 0.5rem 0.75rem;
+    border: 2px solid #222;
+    border-bottom: 3px solid #222;
+    background: #f5f5f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pipeline-stage-name {
+    font-weight: bold;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .pipeline-count {
+    background: #222;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 2px 7px;
+    min-width: 20px;
+    text-align: center;
+  }
+  .pipeline-col-body {
+    border: 2px solid #222;
+    border-top: none;
+    background: #fafaf7;
+    padding: 0.5rem;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Column header color accents */
+  .pipeline-header-lead { background: #fff; }
+  .pipeline-header-discovery { background: #ebf5fb; }
+  .pipeline-header-proposal { background: #fef9e7; }
+  .pipeline-header-contract-sent { background: #fdebd0; }
+  .pipeline-header-signed { background: #d5f5e3; }
+  .pipeline-header-active { background: #FDE64A; }
+  .pipeline-header-complete { background: #FF8287; }
+
+  /* Project cards */
+  .pipeline-card {
+    display: block;
+    padding: 0.6rem 0.75rem;
+    border: 2px solid #222;
+    background: #fff;
+    box-shadow: 3px 3px 0 #222;
+    text-decoration: none;
+    color: #222;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .pipeline-card:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 #222;
+  }
+  .pipeline-card-title {
+    font-weight: bold;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+    line-height: 1.3;
+  }
+  .pipeline-card-meta {
+    font-size: 0.75rem;
+    color: #666;
+    line-height: 1.3;
+  }
+  .pipeline-card-badge {
+    margin-top: 0.35rem;
+  }
+  .pipeline-deposit-paid {
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: #27ae60;
+    text-transform: uppercase;
+  }
+  .pipeline-empty {
+    text-align: center;
+    color: #ccc;
+    padding: 2rem 0;
+    font-size: 1.2rem;
+  }
+
+  /* On Hold section below the board */
+  .on-hold-section {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    border: 2px dashed #ccc;
+    background: #f9f9f6;
+  }
+  .on-hold-section h4 {
+    margin: 0 0 0.75rem 0;
+    color: #999;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+  }
+  .pipeline-card-hold {
+    display: inline-block;
+    margin-right: 0.75rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.7;
+  }
+
+  /* ---- Send Document button ---- */
+  .btn-send-doc {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .btn-send-doc:hover { background: #1d4ed8; }
+  .btn-send-doc:disabled { background: #94a3b8; cursor: not-allowed; }
+  .btn-send-doc.generated { background: #27ae60; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal-box {
+    background: #fff;
+    border: 3px solid #222;
+    padding: 2rem;
+    max-width: 480px;
+    width: 90%;
+  }
+  .modal-box h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1.1rem;
+  }
+  .modal-box p { margin: 0 0 1.5rem 0; color: #555; line-height: 1.5; }
+  .modal-buttons { display: flex; gap: 0.75rem; justify-content: flex-end; }
+  .modal-btn {
+    padding: 8px 20px;
+    border: 2px solid #222;
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .modal-btn-cancel { background: #fff; color: #222; }
+  .modal-btn-cancel:hover { background: #f5f5f0; }
+  .modal-btn-confirm { background: #222; color: #fff; border-color: #222; }
+  .modal-btn-confirm:hover { background: #444; }
+
+  /* Result modal — shows the PDF link */
+  .modal-result { margin: 1rem 0; }
+  .modal-result a {
+    display: block;
+    padding: 0.75rem 1rem;
+    background: #eafaf1;
+    border: 2px solid #27ae60;
+    color: #222;
+    font-weight: bold;
+    text-decoration: none;
+    text-align: center;
+  }
+  .modal-result a:hover { background: #d5f5e3; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    top: 1.5rem; right: 1.5rem;
+    padding: 1rem 1.5rem;
+    border: 2px solid #222;
+    font-size: 0.9rem; font-weight: bold;
+    z-index: 1001;
+    opacity: 0; transform: translateY(-10px);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .toast.visible { opacity: 1; transform: translateY(0); }
+  .toast.success { background: #eafaf1; border-color: #27ae60; color: #27ae60; }
+  .toast.error { background: #fdecea; border-color: #c0392b; color: #c0392b; }
+</style>
+
+{# Confirm modal #}
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box">
+    <h3 id="modalTitle">Generate SOW</h3>
+    <p id="modalMessage">This will generate the SOW document so you can review it before sending.</p>
+    <div id="modalResult" class="modal-result" style="display:none;"></div>
+    <div class="modal-buttons">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn modal-btn-confirm" id="modalConfirm">Generate</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  // ---- View toggle ----
+  function showView(view) {
+    var tableView = document.getElementById('tableView');
+    var pipelineView = document.getElementById('pipelineView');
+    var btnTable = document.getElementById('btnTable');
+    var btnPipeline = document.getElementById('btnPipeline');
+
+    if (view === 'pipeline') {
+      tableView.style.display = 'none';
+      pipelineView.style.display = 'block';
+      btnTable.classList.remove('active');
+      btnPipeline.classList.add('active');
+    } else {
+      tableView.style.display = 'block';
+      pipelineView.style.display = 'none';
+      btnPipeline.classList.remove('active');
+      btnTable.classList.add('active');
+    }
+  }
+
+  // ---- Modal ----
+  var pendingAction = null;
+  function showModal(title, message, onConfirm) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalMessage').textContent = message;
+    document.getElementById('modalResult').style.display = 'none';
+    document.getElementById('modalResult').innerHTML = '';
+    var confirmBtn = document.getElementById('modalConfirm');
+    confirmBtn.style.display = '';
+    document.getElementById('confirmModal').classList.add('visible');
+    pendingAction = onConfirm;
+    confirmBtn.onclick = function() {
+      if (pendingAction) pendingAction();
+    };
+  }
+  function closeModal() {
+    document.getElementById('confirmModal').classList.remove('visible');
+    pendingAction = null;
+  }
+  document.getElementById('confirmModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  // ---- Toast ----
+  function showToast(message, type) {
+    var toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast ' + type + ' visible';
+    setTimeout(function() { toast.classList.remove('visible'); }, 4000);
+  }
+
+  // ---- Generate SOW ----
+  function sendSOW(projectId, btn) {
+    showModal(
+      'Generate SOW',
+      'This will generate the SOW document from Airtable data. You can review the PDF before sending it to the author.',
+      function() {
+        // Update modal to show loading state
+        var confirmBtn = document.getElementById('modalConfirm');
+        confirmBtn.textContent = 'Generating...';
+        confirmBtn.disabled = true;
+
+        btn.disabled = true;
+        btn.textContent = 'Generating...';
+
+        fetch('/api/send-sow/' + projectId, { method: 'POST' })
+          .then(function(response) { return response.json(); })
+          .then(function(data) {
+            if (data.success) {
+              // Show the PDF link in the modal for review
+              var resultDiv = document.getElementById('modalResult');
+              var pdfUrl = data.pdf_url || '#';
+              resultDiv.innerHTML = '<p style="margin:0 0 0.5rem;color:#222;font-weight:bold;">SOW generated! Review it before sending:</p>'
+                + '<a href="' + pdfUrl + '" target="_blank">Open PDF to Review &rarr;</a>';
+              resultDiv.style.display = 'block';
+
+              // Update modal text and hide the generate button
+              document.getElementById('modalMessage').textContent = 'The document has been generated and saved to Airtable.';
+              confirmBtn.style.display = 'none';
+
+              // Update the table button
+              btn.textContent = 'Generated';
+              btn.classList.add('generated');
+
+              showToast('SOW generated — review the PDF before sending.', 'success');
+            } else {
+              closeModal();
+              showToast('Error: ' + (data.error || 'Unknown error'), 'error');
+              btn.disabled = false;
+              btn.textContent = 'Send SOW';
+            }
+            confirmBtn.textContent = 'Generate';
+            confirmBtn.disabled = false;
+          })
+          .catch(function(err) {
+            closeModal();
+            showToast('Network error: ' + err.message, 'error');
+            btn.disabled = false;
+            btn.textContent = 'Send SOW';
+            confirmBtn.textContent = 'Generate';
+            confirmBtn.disabled = false;
+          });
+      }
+    );
+  }
+</script>
+{% endblock %}

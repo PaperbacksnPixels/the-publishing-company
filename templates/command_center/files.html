@@ -1,0 +1,68 @@
+{% extends "command_center/base_cc.html" %}
+
+{% block cc_content %}
+<div class="cc-summary">
+  <div class="cc-summary-card">
+    <h3>Total Files</h3>
+    <div class="number">{{ files|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>To Partner</h3>
+    <div class="number">{{ files|selectattr('direction', 'equalto', 'To Partner')|list|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>From Partner</h3>
+    <div class="number">{{ files|selectattr('direction', 'equalto', 'From Partner')|list|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>Author Review</h3>
+    <div class="number">{{ files|selectattr('direction', 'equalto', 'Author Review')|list|length }}</div>
+  </div>
+</div>
+
+{% if files %}
+  <table class="cc-table">
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Project</th>
+        <th>Type</th>
+        <th>Direction</th>
+        <th>Version</th>
+        <th>Uploaded By</th>
+        <th>Date</th>
+        <th>Download</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in files %}
+        <tr>
+          <td>
+            <strong>{{ f.file_name }}</strong>
+            {% if f.notes %}<br><small>{{ f.notes }}</small>{% endif %}
+          </td>
+          <td>{{ f.project_name or '—' }}</td>
+          <td>{{ f.file_type or '—' }}</td>
+          <td>
+            <span class="status-badge status-{{ f.direction|lower|replace(' ', '-') }}">{{ f.direction }}</span>
+          </td>
+          <td>v{{ f.version }}</td>
+          <td>{{ f.uploaded_by }}</td>
+          <td>{{ f.upload_date or '—' }}</td>
+          <td>
+            {% if f.has_file %}
+              <a href="{{ f.download_url }}" target="_blank" rel="noopener">Download →</a>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <div class="card">
+    <p class="hint">No files uploaded yet across any projects.</p>
+  </div>
+{% endif %}
+{% endblock %}

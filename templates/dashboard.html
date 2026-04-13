@@ -3,38 +3,15 @@
 {% block title %}Dashboard — The Publishing Company{% endblock %}
 
 {% block content %}
-<div class="dashboard">
-  <h1>Welcome{% if display_name %}, {{ display_name }}{% endif %}</h1>
-  <p class="subtitle">
-    {% if role %}
-      Signed in as <strong>{{ role }}</strong> &middot; {{ email }}
-    {% else %}
-      Logged in as <strong>{{ email }}</strong>
-    {% endif %}
-  </p>
-
-  <div class="card">
-    <h2>Your portal</h2>
-    <p>Everything you need for your projects, in one place.</p>
-    <p>
-      <a href="{{ url_for('projects_list') }}" class="btn btn-primary">View my projects</a>
-    </p>
+<div class="author-projects" style="max-width: 720px; margin: 0 auto;">
+  <div class="projects-header" style="margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 3px solid #222;">
+    <h1>Welcome{% if display_name %}, {{ display_name }}{% endif %}!</h1>
+    <p style="color: #666; margin: 0;">Everything you need for your projects, in one place.</p>
   </div>
 
-  <div class="card">
-    <h3>Account info</h3>
-    <dl>
-      <dt>Name</dt>
-      <dd>{{ display_name or "(not set)" }}</dd>
-      <dt>Email</dt>
-      <dd>{{ email }}</dd>
-      <dt>Role</dt>
-      <dd>{{ role or "(not set)" }}</dd>
-      <dt>Linked Airtable ID</dt>
-      <dd><code>{{ linked_author_id or "(none)" }}</code></dd>
-      <dt>Supabase User ID</dt>
-      <dd><code>{{ user_id }}</code></dd>
-    </dl>
-  </div>
+  <a href="{{ url_for('projects_list') }}" class="proj-card" style="display: block; border: 2px solid #222; padding: 1.5rem; background: #fff; text-decoration: none; color: #222; box-shadow: 4px 4px 0 #222; transition: transform 0.1s, box-shadow 0.1s;">
+    <h2 style="margin: 0 0 0.5rem 0;">My Projects →</h2>
+    <p style="margin: 0; color: #666;">View your books, milestones, documents, and billing.</p>
+  </a>
 </div>
 {% endblock %}

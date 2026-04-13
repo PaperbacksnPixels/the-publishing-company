@@ -21,6 +21,7 @@ TASKS_TABLE = "tblC79tQh8tJGjA1c"
 SERVICES_TABLE = "tblVc0gp3KOj4vuxi"
 PORTAL_USERS_TABLE = "tbl6ny7bV34Lmjaw4"
 PARTNERS_TABLE = "tblC5DXtCNBdj6oKs"
+PROJECT_FILES_TABLE = "tblru3XyFKxbEjwxw"
 
 # ============================================================
 # PORTAL USERS — Field IDs (new in Phase 1 rebuild)
@@ -122,6 +123,87 @@ TASK_TRIGGERS_DOC = "fld23wm2QMjvNUAGV"    # Triggers Document (checkbox)
 TASK_INSTRUCTIONS = "fldB74YCkAJ055mis"     # Instructions (multilineText)
 TASK_AUTHOR_VISIBLE = "fldujWJJl0rB9jnXq"  # Author Visible (checkbox)
 TASK_STAGE_DESC = "fldQBQZxYI7kDr6Qd"      # Stage Description (multilineText)
+TASK_ASSIGNED_PARTNER = "fldrcTUeG3ZYIrvsJ" # Assigned Partner (link to Partners table)
+
+# ============================================================
+# PARTNERS — Field IDs
+# ============================================================
+
+PARTNER_NAME = "fldgA3QXhaIxptkTc"          # Partner Name (singleLineText, primary field)
+PARTNER_PREFERRED_NAME = "fldbnkRwfYSesJByY" # Preferred Name (singleLineText)
+PARTNER_TYPE = "fldcwyrXcWBGwh6QR"          # Partner Type (singleSelect: Task Partner, Channel Partner)
+PARTNER_EMAIL = "fldCg0ghQu5dkDOnY"         # Email (singleLineText)
+PARTNER_SPECIALTIES = "fldoDXfhqVd2kd7IY"   # Specialties (multipleSelects)
+PARTNER_HOURLY_RATE = "fldIpoHz9Pnn02h4M"   # Hourly Rate (currency)
+PARTNER_PORTFOLIO = "fldlUT4yPKpu7Nb3l"     # Portfolio URL (url)
+PARTNER_STATUS = "fldGM7ZRk1QqtUlgL"        # Status (singleSelect: Active, Inactive)
+PARTNER_BIO = "fld0O98uUqaWfrzSd"           # Bio / Notes (multilineText)
+PARTNER_NOTES = "fldWGVlB37Tm3yywb"         # Notes (multilineText)
+PARTNER_TASKS = "fldW47MRkQk9FOhtB"         # Tasks (link to Tasks — reverse of assigned partner)
+PARTNER_PROJECTS = "fldJudaNkeCczs7Oh"       # Projects (link to Projects — used by Channel Partners)
+PARTNER_DISBURSEMENTS = "fldW7EgDPZBeGpAZ2"  # Disbursements (link to Disbursements)
+
+# ============================================================
+# PROJECT FILES — Field IDs (created April 12, 2026)
+# ============================================================
+# Every file upload is a row. Version history = multiple rows for the same task.
+
+PF_FILE_NAME = "fldiGlEFDC3qyVSlX"        # File Name (singleLineText, primary)
+PF_FILE = "fldA8Gix4LZmnxpN4"             # File (attachment)
+PF_PROJECT = "fldpwfReXoCLCgGLM"           # Project (link to Projects)
+PF_TASK = "fld0HkpPP95sPTiQX"             # Task (link to Tasks)
+PF_VERSION = "fldxdCYY9r96M6nQz"           # Version (number)
+PF_FILE_TYPE = "fld158UT0mSyGCwRq"         # File Type (singleSelect)
+PF_UPLOADED_BY = "flddx9TnGVFiR3DmL"       # Uploaded By (singleLineText)
+PF_UPLOAD_DATE = "fldwVDaYoCsjXLig2"        # Upload Date (date)
+PF_NOTES = "fldLpRj4iJ2xrnUWr"             # Notes (multilineText)
+PF_DIRECTION = "fldO5dA0A4xg3pt3y"          # Direction (singleSelect: To Partner, From Partner, Author Review)
+
+# ============================================================
+# DISBURSEMENTS — Field IDs (partner/vendor payments)
+# ============================================================
+# Tracks money going OUT — payments to partners, vendors, referral fees.
+
+DISBURSEMENTS_TABLE = "tblpv5XXX4p1EO9GT"
+
+DISB_NAME = "fldTgKvLWY5ONFLBu"              # Disbursement Name (primary)
+DISB_PARTNER = "fldTTF8euDVhUdPpt"            # Partners (link to Partners)
+DISB_TYPE = "fld8dSYo5B8CIKyDV"              # Disbursement Type (singleSelect)
+DISB_RECIPIENT_TYPE = "fldRQPIeJoDqD90vv"     # Recipient Type (singleSelect)
+DISB_PROJECT = "fldx4HlhuoiqmGDDI"           # Project (link to Projects)
+DISB_TASK = "fldRSrGuNF6uEYSwI"              # Related Task (link to Tasks)
+DISB_REFERRAL = "fldLsQIFVWLlNgx3U"          # Referral (link to Referrals)
+DISB_AMOUNT_REQUESTED = "fld6ukQWYo4BYjYbo"  # Amount Requested (currency)
+DISB_AMOUNT_PAID = "fldsCNwLFVvG9OORg"        # Amount Paid (currency)
+DISB_REQUESTED_DATE = "fldirBKY1y7DCXWiU"     # Requested Date (date)
+DISB_PAID_DATE = "fldOClVVJQvSjaZrp"          # Paid Date (date)
+DISB_PAYMENT_STATUS = "fldVJVW7YUZvaNox1"     # Payment Status (singleSelect)
+DISB_PAYMENT_METHOD = "fldrGm3LL9lIHK0vj"     # Payment Method (singleSelect)
+DISB_PAYMENT_REF = "fld8uL2CnRbVpnxMa"       # Payment Reference (singleLineText)
+DISB_NOTES = "fldffERNmN5WZVuJy"              # Notes (multilineText)
+
+# Link field on Projects table pointing to Disbursements
+PROJ_DISBURSEMENTS = "fldcTAMpW6UHzTvBq"
+
+# ============================================================
+# TYPEFLOW — Document generation & e-signatures
+# ============================================================
+# Each "flow" is a template in Typeflow. When triggered via API,
+# Typeflow generates the document from Airtable data, sends it
+# for e-signature, and saves the signed PDF back to Airtable.
+
+TYPEFLOW_API_URL = "https://app.typeflow.us/api/generate-doc"
+
+# SOW (Statement of Work) — lives on the Projects table
+# One SOW per project, scoped to a specific service.
+TYPEFLOW_SOW_FLOW_ID = "1ef0aec99c5f42b1b6f3b09052e93d8a"
+TYPEFLOW_SOW_TABLE_ID = PROJECTS_TABLE  # tbl80NFeqIftRgA0O
+
+# MSA (Master Service Agreement) — lives on Authors or Partners table
+# One MSA per author/partner relationship.
+TYPEFLOW_MSA_FLOW_ID = "33bbd513db99493ab3d2ec01566fead3"
+# MSA can go to either Authors or Partners (Channel Partners),
+# so the table ID is passed dynamically based on who we're sending to.
 
 # ============================================================
 # SERVICE-TO-BUNDLE MAPPING

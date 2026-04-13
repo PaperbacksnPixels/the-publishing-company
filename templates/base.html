@@ -5,9 +5,114 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}The Publishing Company{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/portal.css') }}">
+  <style>
+    /* Action banner — shows at top of dashboards when user needs to act */
+    .action-banner {
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      border: 3px solid #222;
+      background: #fff8e1;
+      font-size: 1rem;
+    }
+    .action-banner.urgent {
+      background: #fdecea;
+      border-color: #c0392b;
+    }
+    .action-banner .count {
+      font-size: 1.4rem;
+      font-weight: bold;
+    }
+    .action-banner a {
+      margin-left: 1rem;
+    }
+
+    /* Next-step text on task/milestone cards */
+    .next-step {
+      margin-top: 0.4rem;
+      padding: 0.3rem 0.6rem;
+      font-size: 0.85rem;
+      border-left: 3px solid #ccc;
+      color: #666;
+    }
+    .next-step.action-needed {
+      border-left-color: #e67e22;
+      color: #222;
+      font-weight: bold;
+      background: #fff8e1;
+    }
+    /* Role-colored headers */
+    .header-admin { background: var(--yellow); }
+    .header-author { background: #485CC7; }
+    .header-author .logo,
+    .header-author .user-email,
+    .header-author .btn-link { color: #fff; }
+    .header-partner { background: #1a9e7a; }
+    .header-partner .logo,
+    .header-partner .user-email,
+    .header-partner .btn-link { color: #fff; }
+
+    /* Preview mode banner */
+    .preview-banner {
+      background: #222;
+      color: #fff;
+      padding: 0.5rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+    .preview-exit-btn {
+      background: #fff;
+      color: #222;
+      padding: 4px 14px;
+      font-weight: bold;
+      font-size: 0.8rem;
+      text-decoration: none;
+      border: 2px solid #fff;
+    }
+    .preview-exit-btn:hover {
+      background: #f5f5f0;
+    }
+
+    .next-step.up-next {
+      border-left-color: #3498db;
+      background: #ebf5fb;
+      color: #222;
+      font-weight: bold;
+    }
+
+    /* Completion animation */
+    @keyframes completePulse {
+      0% { background: #fff; }
+      20% { background: #27ae60; color: #fff; transform: scale(1.01); }
+      40% { background: #2ecc71; color: #fff; }
+      100% { background: #eafaf1; color: #222; transform: scale(1); }
+    }
+    .task-complete-flash {
+      animation: completePulse 1.2s ease-out forwards;
+    }
+    .task-complete-flash td {
+      color: inherit !important;
+    }
+
+    /* Checkmark that pops in */
+    @keyframes checkPop {
+      0% { transform: scale(0); opacity: 0; }
+      50% { transform: scale(1.4); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .check-pop {
+      display: inline-block;
+      animation: checkPop 0.5s ease-out 0.3s both;
+      font-size: 1.4rem;
+    }
+  </style>
 </head>
 <body>
-  <header class="site-header">
+  {# Color-coded header based on role #}
+  {% set role = session.get('role', '') %}
+  {% set is_preview = session.get('admin_preview', false) %}
+  <header class="site-header {% if role == 'Author' %}header-author{% elif role in ['Task Partner', 'Channel Partner'] %}header-partner{% elif role == 'Admin' %}header-admin{% endif %}">
     <div class="container">
       <a href="{{ url_for('index') }}" class="logo">The Publishing Company</a>
       {% if session.get('user_id') %}
@@ -18,6 +123,14 @@
       {% endif %}
     </div>
   </header>
+
+  {# Preview mode banner — shows when Admin is viewing as another role #}
+  {% if is_preview %}
+    <div class="preview-banner">
+      <span>Previewing as <strong>{{ role }}</strong></span>
+      <a href="{{ url_for('admin_preview_exit') }}" class="preview-exit-btn">Back to Command Center</a>
+    </div>
+  {% endif %}
 
   <main class="container">
     {% with messages = get_flashed_messages(with_categories=true) %}

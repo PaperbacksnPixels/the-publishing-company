@@ -1,0 +1,796 @@
+{% extends "command_center/base_cc.html" %}
+
+{% block cc_content %}
+<a href="{{ url_for('command_center', tab='projects') }}" class="back-link">&larr; All Projects</a>
+
+<div class="project-header">
+  <h2>{{ project.name }}</h2>
+  <span class="status-badge status-{{ project.status|lower|replace(' ', '-') }}">{{ project.status }}</span>
+  {% if project.author_id %}
+    <a href="{{ url_for('admin_preview_start', role_type='author', record_id=project.author_id) }}" class="btn-preview">View as Author</a>
+  {% endif %}
+</div>
+
+{# ============================================================
+   EDITABLE PROJECT INFO — wraps both cards in one form
+   ============================================================ #}
+<form method="POST" action="{{ url_for('command_center_project_detail', project_id=project.id) }}">
+  <div class="detail-grid">
+
+    {# ---- Project Info Card ---- #}
+    <div class="detail-card">
+      <h3>Project Info</h3>
+      <div class="form-grid">
+        <label for="status">Status</label>
+        <select name="status" id="status" class="form-input">
+          {% for s in ['Lead', 'Discovery', 'Proposal', 'Contract Sent', 'Signed', 'Active', 'On Hold', 'Complete'] %}
+            <option value="{{ s }}" {% if project.status == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="service">Service</label>
+        <input type="text" name="service" id="service" class="form-input"
+               value="{{ project.service or '' }}">
+
+        <label for="start_date">Start Date</label>
+        <input type="date" name="start_date" id="start_date" class="form-input"
+               value="{{ project.start_date or '' }}">
+
+        <label>Author</label>
+        <div class="form-static">{{ project.author_name or '—' }}{% if project.author_email %} ({{ project.author_email }}){% endif %}</div>
+
+        <label for="deposit_paid">Deposit</label>
+        <div>
+          <label class="checkbox-label">
+            <input type="checkbox" name="deposit_paid" id="deposit_paid"
+                   {% if project.deposit_paid %}checked{% endif %}>
+            Paid
+          </label>
+        </div>
+      </div>
+    </div>
+
+    {# ---- Contract & Documents Card ---- #}
+    <div class="detail-card">
+      <h3>Contract &amp; Documents</h3>
+      <div class="form-grid">
+        <label for="contract_status">Contract Status</label>
+        <select name="contract_status" id="contract_status" class="form-input">
+          <option value="">—</option>
+          {% for s in ['Not Sent', 'Sent', 'Signed', 'Countersigned'] %}
+            <option value="{{ s }}" {% if project.contract_status == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="contract_sent_date">Sent Date</label>
+        <input type="date" name="contract_sent_date" id="contract_sent_date" class="form-input"
+               value="{{ project.contract_sent_date or '' }}">
+
+        <label for="contract_signed_date">Signed Date</label>
+        <input type="date" name="contract_signed_date" id="contract_signed_date" class="form-input"
+               value="{{ project.contract_signed_date or '' }}">
+
+        {% if project.contract_url %}
+          <label>Signed PDF</label>
+          <div><a href="{{ project.contract_url }}" target="_blank">View document &rarr;</a></div>
+        {% endif %}
+      </div>
+
+      {# Send Document Buttons #}
+      <div class="doc-actions">
+        {% if not project.contract_status or project.contract_status == 'Not Sent' %}
+          <button type="button" class="btn-send-doc" id="btn-send-sow"
+                  onclick="sendDocument('sow', '{{ project.id }}', this)">
+            Generate SOW
+          </button>
+        {% endif %}
+        {% if project.author_id %}
+          <button type="button" class="btn-send-doc btn-send-msa" id="btn-send-msa"
+                  onclick="sendDocument('msa', '{{ project.author_id }}', this, 'author')">
+            Generate MSA
+          </button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# Save button for the form #}
+  <div class="form-actions">
+    <button type="submit" class="btn-save">Save Changes</button>
+  </div>
+</form>
+
+{# ============================================================
+   TASKS — with Add and Delete
+   ============================================================ #}
+<div class="detail-section">
+  <div class="section-header">
+    <h3>Tasks ({{ project.tasks|length }})</h3>
+    <button type="button" class="btn-add" onclick="toggleAddTask()">+ Add Task</button>
+  </div>
+
+  {# Add Task form — hidden by default #}
+  <div id="addTaskForm" class="add-task-form" style="display: none;">
+    <div class="add-task-fields">
+      <input type="text" id="newTaskName" placeholder="Task name" class="form-input">
+      <input type="text" id="newTaskModule" placeholder="Module (e.g. Editorial)" class="form-input">
+      <input type="date" id="newTaskDueDate" class="form-input">
+      <input type="number" id="newTaskSequence" placeholder="Seq #" class="form-input form-input-small">
+      <button type="button" class="btn-save" onclick="addTask('{{ project.id }}')">Add</button>
+      <button type="button" class="btn-cancel" onclick="toggleAddTask()">Cancel</button>
+    </div>
+  </div>
+
+  {% if project.tasks %}
+    <table class="cc-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Task</th>
+          <th>Module</th>
+          <th>Status</th>
+          <th>Due Date</th>
+          <th>Partner</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in project.tasks %}
+          <tr id="task-row-{{ t.id }}">
+            <td>{{ t.sequence }}</td>
+            <td><a href="{{ url_for('command_center_task_detail', task_id=t.id) }}">{{ t.name }}</a></td>
+            <td>{{ t.module or '—' }}</td>
+            <td><span class="status-badge status-{{ t.status|lower|replace(' ', '-') }}">{{ t.status }}</span></td>
+            <td>{{ t.due_date or '—' }}</td>
+            <td>{{ t.partner_name or '—' }}</td>
+            <td>
+              <button type="button" class="btn-delete" onclick="deleteTask('{{ t.id }}', '{{ t.name }}')" title="Delete task">&times;</button>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty-state">No tasks yet.</p>
+  {% endif %}
+</div>
+
+{# ============================================================
+   INVOICES — with Add
+   ============================================================ #}
+<div class="detail-section">
+  <div class="section-header">
+    <h3>Invoices ({{ project.invoices|length }})</h3>
+    <button type="button" class="btn-add" onclick="toggleAddInvoice()">+ Create Invoice</button>
+  </div>
+
+  {# Add Invoice form — hidden by default #}
+  <div id="addInvoiceForm" class="add-task-form" style="display: none;">
+    <div class="add-task-fields">
+      <input type="number" id="newInvAmount" step="0.01" min="0" placeholder="Amount ($)" class="form-input" style="max-width:120px;">
+      <select id="newInvType" class="form-input" style="max-width:150px;">
+        <option value="Deposit">Deposit</option>
+        <option value="Balance">Balance</option>
+        <option value="Add-On" selected>Add-On</option>
+        <option value="Custom">Custom</option>
+      </select>
+      <input type="text" id="newInvDesc" placeholder="Description (e.g. AI Edition)" class="form-input">
+      <button type="button" class="btn-save" onclick="addInvoice('{{ project.id }}')">Create</button>
+      <button type="button" class="btn-cancel" onclick="toggleAddInvoice()">Cancel</button>
+    </div>
+  </div>
+  {% if project.invoices %}
+    <table class="cc-table">
+      <thead>
+        <tr>
+          <th>Invoice</th>
+          <th>Type</th>
+          <th>Amount</th>
+          <th>Paid</th>
+          <th>Outstanding</th>
+          <th>Status</th>
+          <th>Due</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in project.invoices %}
+          <tr>
+            <td>{{ inv.name }}</td>
+            <td>{{ inv.type or '—' }}</td>
+            <td>${{ '{:,.0f}'.format(inv.amount or 0) }}</td>
+            <td>${{ '{:,.0f}'.format(inv.amount_paid or 0) }}</td>
+            <td>${{ '{:,.0f}'.format(inv.outstanding or 0) }}</td>
+            <td><span class="status-badge status-{{ inv.status|lower|replace(' ', '-') }}">{{ inv.status }}</span></td>
+            <td>{{ inv.due_date or '—' }}</td>
+            <td>
+              {% if inv.stripe_url %}
+                <a href="{{ inv.stripe_url }}" target="_blank">Stripe &rarr;</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty-state">No invoices yet.</p>
+  {% endif %}
+</div>
+
+{# ============================================================
+   DISBURSEMENTS — with Add
+   ============================================================ #}
+<div class="detail-section">
+  <div class="section-header">
+    <h3>Disbursements ({{ project.disbursements|length }})</h3>
+    <button type="button" class="btn-add" onclick="toggleAddDisbursement()">+ Add Disbursement</button>
+  </div>
+
+  {# Add Disbursement form — hidden by default #}
+  <div id="addDisbForm" class="add-task-form" style="display: none;">
+    <div class="add-task-fields">
+      <input type="number" id="newDisbAmount" step="0.01" min="0" placeholder="Amount ($)" class="form-input" style="max-width:120px;">
+      <select id="newDisbType" class="form-input" style="max-width:160px;">
+        <option value="Partner Fee">Partner Fee</option>
+        <option value="Referral Fee">Referral Fee</option>
+        <option value="Bonus">Bonus</option>
+        <option value="Reimbursement">Reimbursement</option>
+      </select>
+      <input type="text" id="newDisbNotes" placeholder="Notes / invoice ref" class="form-input">
+      <button type="button" class="btn-save" onclick="addDisbursement('{{ project.id }}')">Add</button>
+      <button type="button" class="btn-cancel" onclick="toggleAddDisbursement()">Cancel</button>
+    </div>
+  </div>
+  {% if project.disbursements %}
+    <table class="cc-table">
+      <thead>
+        <tr>
+          <th>Disbursement</th>
+          <th>Type</th>
+          <th>Partner</th>
+          <th>Requested</th>
+          <th>Paid</th>
+          <th>Status</th>
+          <th>Date</th>
+          <th>Method</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in project.disbursements %}
+          <tr>
+            <td>{{ d.name }}</td>
+            <td>{{ d.type or '—' }}</td>
+            <td>{{ d.partner_name or '—' }}</td>
+            <td>${{ '{:,.0f}'.format(d.amount_requested or 0) }}</td>
+            <td>${{ '{:,.0f}'.format(d.amount_paid or 0) }}</td>
+            <td><span class="status-badge status-{{ d.status|lower|replace(' ', '-') }}">{{ d.status or '—' }}</span></td>
+            <td>{{ d.paid_date or d.requested_date or '—' }}</td>
+            <td>{{ d.payment_method or '—' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty-state">No disbursements yet.</p>
+  {% endif %}
+</div>
+
+<style>
+  .back-link {
+    display: inline-block;
+    margin-bottom: 1rem;
+    color: #666;
+    text-decoration: none;
+    font-size: 0.9rem;
+  }
+  .back-link:hover { color: #222; }
+
+  .project-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .project-header h2 { margin: 0; }
+  .btn-preview {
+    margin-left: auto;
+    background: #485CC7;
+    color: #fff;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-decoration: none;
+    border: 2px solid #222;
+  }
+  .btn-preview:hover { background: #3a4db0; color: #fff; }
+
+  /* ---- Two-column grid ---- */
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .detail-card {
+    border: 2px solid #222;
+    padding: 1.25rem;
+    background: #fff;
+  }
+  .detail-card h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    text-transform: uppercase;
+    color: #666;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0.5rem;
+  }
+
+  /* ---- Form fields inside cards ---- */
+  .form-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 1rem;
+    align-items: center;
+  }
+  .form-grid label {
+    font-weight: bold;
+    font-size: 0.85rem;
+    color: #666;
+  }
+  .form-input {
+    padding: 0.35rem 0.5rem;
+    border: 2px solid #ddd;
+    font-size: 0.9rem;
+    font-family: inherit;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .form-input:focus {
+    border-color: #222;
+    outline: none;
+  }
+  .form-input-small { max-width: 70px; }
+  .form-static {
+    font-size: 0.9rem;
+    padding: 0.35rem 0;
+  }
+  .checkbox-label {
+    font-size: 0.9rem;
+    font-weight: normal;
+    color: #222;
+    cursor: pointer;
+  }
+  .checkbox-label input { margin-right: 0.4rem; }
+
+  /* ---- Save / action buttons ---- */
+  .form-actions {
+    margin-bottom: 2rem;
+  }
+  .btn-save {
+    background: #222;
+    color: #fff;
+    border: 2px solid #222;
+    padding: 8px 24px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .btn-save:hover { background: #444; }
+  .btn-cancel {
+    background: #fff;
+    color: #222;
+    border: 2px solid #222;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .btn-cancel:hover { background: #f5f5f0; }
+
+  .doc-actions {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid #ddd;
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  /* ---- Sections ---- */
+  .detail-section { margin-bottom: 2rem; }
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #222;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .section-header h3 { margin: 0; border: none; padding: 0; }
+  .btn-add {
+    background: #fff;
+    border: 2px solid #222;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .btn-add:hover { background: #222; color: #fff; }
+
+  /* ---- Add Task form ---- */
+  .add-task-form {
+    border: 2px solid #222;
+    background: #f5f5f0;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  .add-task-fields {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .add-task-fields .form-input { width: auto; flex: 1; min-width: 120px; }
+
+  /* ---- Delete button ---- */
+  .btn-delete {
+    background: none;
+    border: none;
+    color: #c0392b;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 2px 8px;
+  }
+  .btn-delete:hover { background: #fdecea; }
+
+  .empty-state {
+    color: #999;
+    font-style: italic;
+    padding: 1rem 0;
+  }
+  .text-success { color: #27ae60; font-weight: bold; }
+  .text-warning { color: #e67e22; font-weight: bold; }
+
+  /* ---- Send Document buttons ---- */
+  .btn-send-doc {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .btn-send-doc:hover { background: #1d4ed8; }
+  .btn-send-doc:disabled { background: #94a3b8; cursor: not-allowed; }
+  .btn-send-doc.sent { background: #16a34a; }
+  .btn-send-msa { background: #7c3aed; }
+  .btn-send-msa:hover { background: #6d28d9; }
+
+  /* ---- Modal ---- */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal-box {
+    background: #fff;
+    border: 3px solid #222;
+    padding: 2rem;
+    max-width: 420px;
+    width: 90%;
+  }
+  .modal-box h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1.1rem;
+    border: none; padding: 0;
+    text-transform: none; color: #222;
+  }
+  .modal-box p { margin: 0 0 1.5rem 0; color: #555; font-size: 0.95rem; line-height: 1.5; }
+  .modal-buttons { display: flex; gap: 0.75rem; justify-content: flex-end; }
+  .modal-btn {
+    padding: 8px 20px;
+    border: 2px solid #222;
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .modal-btn-cancel { background: #fff; color: #222; }
+  .modal-btn-cancel:hover { background: #f5f5f0; }
+  .modal-btn-confirm { background: #222; color: #fff; border-color: #222; }
+  .modal-btn-confirm:hover { background: #444; }
+  .modal-btn-danger { background: #c0392b; color: #fff; border-color: #c0392b; }
+  .modal-btn-danger:hover { background: #e74c3c; }
+  .modal-result { margin: 1rem 0; }
+  .modal-result a {
+    display: block;
+    padding: 0.75rem 1rem;
+    background: #eafaf1;
+    border: 2px solid #27ae60;
+    color: #222;
+    font-weight: bold;
+    text-decoration: none;
+    text-align: center;
+  }
+  .modal-result a:hover { background: #d5f5e3; }
+
+  /* ---- Toast ---- */
+  .toast {
+    position: fixed;
+    top: 1.5rem; right: 1.5rem;
+    padding: 1rem 1.5rem;
+    border: 2px solid #222;
+    font-size: 0.9rem; font-weight: bold;
+    z-index: 1001;
+    opacity: 0; transform: translateY(-10px);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .toast.visible { opacity: 1; transform: translateY(0); }
+  .toast.success { background: #eafaf1; border-color: #27ae60; color: #27ae60; }
+  .toast.error { background: #fdecea; border-color: #c0392b; color: #c0392b; }
+</style>
+
+{# Modal + Toast #}
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box">
+    <h3 id="modalTitle">Confirm</h3>
+    <p id="modalMessage">Are you sure?</p>
+    <div id="modalResult" class="modal-result" style="display:none;"></div>
+    <div class="modal-buttons">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn" id="modalConfirm">Confirm</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  // ---- Modal ----
+  var pendingAction = null;
+  function showModal(title, message, onConfirm, danger) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalMessage').textContent = message;
+    document.getElementById('modalResult').style.display = 'none';
+    document.getElementById('modalResult').innerHTML = '';
+    document.getElementById('confirmModal').classList.add('visible');
+    var confirmBtn = document.getElementById('modalConfirm');
+    confirmBtn.style.display = '';
+    confirmBtn.disabled = false;
+    confirmBtn.className = 'modal-btn ' + (danger ? 'modal-btn-danger' : 'modal-btn-confirm');
+    confirmBtn.textContent = danger ? 'Delete' : 'Confirm';
+    pendingAction = onConfirm;
+    confirmBtn.onclick = function() {
+      if (danger) closeModal();
+      if (pendingAction) pendingAction();
+    };
+  }
+  function closeModal() {
+    document.getElementById('confirmModal').classList.remove('visible');
+    pendingAction = null;
+  }
+  document.getElementById('confirmModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  // ---- Toast ----
+  function showToast(message, type) {
+    var toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast ' + type + ' visible';
+    setTimeout(function() { toast.classList.remove('visible'); }, 4000);
+  }
+
+  // ---- Add Task ----
+  function toggleAddTask() {
+    var form = document.getElementById('addTaskForm');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    if (form.style.display === 'block') {
+      document.getElementById('newTaskName').focus();
+    }
+  }
+
+  function addTask(projectId) {
+    var name = document.getElementById('newTaskName').value.trim();
+    if (!name) {
+      showToast('Task name is required', 'error');
+      return;
+    }
+
+    var data = {
+      name: name,
+      module: document.getElementById('newTaskModule').value.trim(),
+      due_date: document.getElementById('newTaskDueDate').value,
+      sequence: document.getElementById('newTaskSequence').value,
+    };
+
+    fetch('/api/project/' + projectId + '/add-task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      if (result.success) {
+        showToast('Task added!', 'success');
+        // Reload the page to show the new task
+        setTimeout(function() { location.reload(); }, 800);
+      } else {
+        showToast('Error: ' + (result.error || 'Unknown'), 'error');
+      }
+    })
+    .catch(function(err) {
+      showToast('Network error: ' + err.message, 'error');
+    });
+  }
+
+  // ---- Delete Task ----
+  function deleteTask(taskId, taskName) {
+    showModal(
+      'Delete Task',
+      'Delete "' + taskName + '"? This cannot be undone.',
+      function() {
+        fetch('/api/task/' + taskId + '/delete', { method: 'POST' })
+          .then(function(r) { return r.json(); })
+          .then(function(result) {
+            if (result.success) {
+              // Remove the row from the table
+              var row = document.getElementById('task-row-' + taskId);
+              if (row) row.remove();
+              showToast('Task deleted', 'success');
+            } else {
+              showToast('Error: ' + (result.error || 'Unknown'), 'error');
+            }
+          })
+          .catch(function(err) {
+            showToast('Network error: ' + err.message, 'error');
+          });
+      },
+      true  // danger = red button
+    );
+  }
+
+  // ---- Add Invoice ----
+  function toggleAddInvoice() {
+    var form = document.getElementById('addInvoiceForm');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    if (form.style.display === 'block') {
+      document.getElementById('newInvAmount').focus();
+    }
+  }
+
+  function addInvoice(projectId) {
+    var amount = document.getElementById('newInvAmount').value;
+    if (!amount || parseFloat(amount) <= 0) {
+      showToast('Enter an amount', 'error');
+      return;
+    }
+
+    var data = {
+      amount: parseFloat(amount),
+      type: document.getElementById('newInvType').value,
+      description: document.getElementById('newInvDesc').value.trim(),
+    };
+
+    fetch('/api/project/' + projectId + '/create-invoice', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      if (result.success) {
+        showToast('Invoice created!', 'success');
+        setTimeout(function() { location.reload(); }, 800);
+      } else {
+        showToast('Error: ' + (result.error || 'Unknown'), 'error');
+      }
+    })
+    .catch(function(err) {
+      showToast('Network error: ' + err.message, 'error');
+    });
+  }
+
+  // ---- Add Disbursement ----
+  function toggleAddDisbursement() {
+    var form = document.getElementById('addDisbForm');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    if (form.style.display === 'block') {
+      document.getElementById('newDisbAmount').focus();
+    }
+  }
+
+  function addDisbursement(projectId) {
+    var amount = document.getElementById('newDisbAmount').value;
+    if (!amount || parseFloat(amount) <= 0) {
+      showToast('Enter an amount', 'error');
+      return;
+    }
+
+    var data = {
+      amount: parseFloat(amount),
+      type: document.getElementById('newDisbType').value,
+      notes: document.getElementById('newDisbNotes').value.trim(),
+      project_id: projectId,
+    };
+
+    fetch('/api/disbursement', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      if (result.success) {
+        showToast('Disbursement added!', 'success');
+        setTimeout(function() { location.reload(); }, 800);
+      } else {
+        showToast('Error: ' + (result.error || 'Unknown'), 'error');
+      }
+    })
+    .catch(function(err) {
+      showToast('Network error: ' + err.message, 'error');
+    });
+  }
+
+  // ---- Send Document ----
+  function sendDocument(docType, recordId, btn, recipientType) {
+    var label = docType === 'sow' ? 'SOW' : 'MSA';
+    showModal(
+      'Generate ' + label,
+      'This will generate the ' + label + ' document. You can review the PDF before sending it.',
+      function() {
+        var confirmBtn = document.getElementById('modalConfirm');
+        confirmBtn.textContent = 'Generating...';
+        confirmBtn.disabled = true;
+        btn.disabled = true;
+        btn.textContent = 'Generating...';
+
+        var url = docType === 'sow'
+          ? '/api/send-sow/' + recordId
+          : '/api/send-msa/' + recordId + '?type=' + (recipientType || 'author');
+
+        fetch(url, { method: 'POST' })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.success) {
+              // Show the PDF link in the modal
+              var resultDiv = document.getElementById('modalResult');
+              var pdfUrl = data.pdf_url || '#';
+              resultDiv.innerHTML = '<p style="margin:0 0 0.5rem;color:#222;font-weight:bold;">'
+                + label + ' generated! Review before sending:</p>'
+                + '<a href="' + pdfUrl + '" target="_blank">Open PDF to Review &rarr;</a>';
+              resultDiv.style.display = 'block';
+
+              document.getElementById('modalMessage').textContent =
+                'The document has been generated and saved to Airtable. Review it, then send when ready.';
+              confirmBtn.style.display = 'none';
+
+              btn.textContent = 'Generated';
+              btn.classList.add('sent');
+              showToast(label + ' generated — review the PDF.', 'success');
+            } else {
+              closeModal();
+              showToast('Error: ' + (data.error || 'Unknown'), 'error');
+              btn.disabled = false;
+              btn.textContent = 'Generate ' + label;
+            }
+            confirmBtn.textContent = 'Generate';
+            confirmBtn.disabled = false;
+          })
+          .catch(function(err) {
+            closeModal();
+            showToast('Network error: ' + err.message, 'error');
+            btn.disabled = false;
+            btn.textContent = 'Generate ' + label;
+            confirmBtn.textContent = 'Generate';
+            confirmBtn.disabled = false;
+          });
+      }
+    );
+  }
+</script>
+{% endblock %}

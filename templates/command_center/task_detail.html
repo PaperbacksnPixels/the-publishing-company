@@ -1,0 +1,400 @@
+{% extends "command_center/base_cc.html" %}
+
+{% block cc_content %}
+<a href="{{ url_for('command_center', tab='tasks') }}" class="back-link">&larr; All Tasks</a>
+
+{# ---- If this task belongs to a project, also link back to it ---- #}
+{% if task.project_id %}
+  <a href="{{ url_for('command_center_project_detail', project_id=task.project_id) }}" class="back-link" style="margin-left: 1.5rem;">
+    &larr; {{ task.project_name }}
+  </a>
+{% endif %}
+
+<div class="task-header" id="task-header">
+  <h2>{{ task.name }}</h2>
+  {% if task.status == 'Complete' %}
+    <span class="status-badge status-complete">Complete</span>
+  {% endif %}
+</div>
+
+{# ---- Task Info + Assignment ---- #}
+<form method="POST">
+  <div class="detail-grid">
+
+    {# Left card: Task details #}
+    <div class="detail-card">
+      <h3>Task Details</h3>
+      <div class="form-grid">
+        <label for="status">Status</label>
+        <select name="status" id="status" class="form-input">
+          {% for s in ['Not Started', 'In Progress', 'Complete', 'Blocked', 'On Hold', 'Waiting'] %}
+            <option value="{{ s }}" {% if task.status == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="due_date">Due Date</label>
+        <input type="date" name="due_date" id="due_date" class="form-input"
+               value="{{ task.due_date or '' }}">
+
+        <label>Module</label>
+        <div class="form-static">{{ task.module or '—' }}</div>
+
+        {% if task.completed_date %}
+          <label>Completed</label>
+          <div class="form-static">{{ task.completed_date }}</div>
+        {% endif %}
+      </div>
+
+      {% if task.requires_pm or task.requires_author %}
+        <div class="task-flags">
+          {% if task.requires_pm %}
+            <span class="flag flag-pm">Requires PM Approval</span>
+          {% endif %}
+          {% if task.requires_author %}
+            <span class="flag flag-author">Requires Author Approval</span>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+
+    {# Right card: Assignment + Project #}
+    <div class="detail-card">
+      <h3>Assignment</h3>
+      <div class="info-grid">
+        <label>Project</label>
+        <div>
+          {% if task.project_id %}
+            <a href="{{ url_for('command_center_project_detail', project_id=task.project_id) }}">
+              <strong>{{ task.project_name }}</strong>
+            </a>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </div>
+
+        <label>Assigned To</label>
+        <div>
+          {% if task.partner_id %}
+            <a href="{{ url_for('command_center_partner_detail', partner_id=task.partner_id) }}">
+              <strong>{{ task.partner_name }}</strong>
+            </a>
+          {% else %}
+            <span class="text-muted">Unassigned</span>
+          {% endif %}
+        </div>
+      </div>
+
+      {# ---- Mark Complete button ---- #}
+      {% if task.status != 'Complete' %}
+        <div class="complete-action">
+          <button type="button" class="btn-complete" id="btnComplete" onclick="markComplete('{{ task.id }}')">
+            Mark Complete
+          </button>
+        </div>
+      {% else %}
+        <div class="complete-action">
+          <div class="complete-badge">Completed {% if task.completed_date %}on {{ task.completed_date }}{% endif %}</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ---- Instructions ---- #}
+  <div class="detail-card" style="margin-bottom: 1rem;">
+    <h3>Instructions</h3>
+    <textarea name="instructions" rows="4" class="form-textarea">{{ task.instructions }}</textarea>
+  </div>
+
+  {# ---- Internal Notes ---- #}
+  <div class="detail-card" style="margin-bottom: 1rem;">
+    <h3>Internal Notes</h3>
+    <textarea name="notes" rows="4" class="form-textarea">{{ task.notes }}</textarea>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn-save">Save Changes</button>
+  </div>
+</form>
+
+{# ---- Files ---- #}
+<div class="detail-section">
+  <div class="section-header">
+    <h3>Files ({{ task.files|length }})</h3>
+    <a href="{{ url_for('upload_file', task_id=task.id) }}" class="btn-add">Upload File</a>
+  </div>
+
+  {% if task.files %}
+    <table class="cc-table">
+      <thead>
+        <tr>
+          <th>Version</th>
+          <th>File</th>
+          <th>Direction</th>
+          <th>Uploaded By</th>
+          <th>Date</th>
+          <th>Notes</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in task.files %}
+          <tr>
+            <td>v{{ f.version }}</td>
+            <td>{{ f.file_name }}</td>
+            <td><span class="status-badge status-{{ f.direction|lower|replace(' ', '-') }}">{{ f.direction }}</span></td>
+            <td>{{ f.uploaded_by }}</td>
+            <td>{{ f.upload_date or '—' }}</td>
+            <td>{{ f.notes or '—' }}</td>
+            <td>
+              {% if f.has_file %}
+                <a href="{{ f.download_url }}" target="_blank">Download &rarr;</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty-state">No files uploaded yet.</p>
+  {% endif %}
+</div>
+
+<style>
+  .back-link {
+    display: inline-block;
+    margin-bottom: 1rem;
+    color: #666;
+    text-decoration: none;
+    font-size: 0.9rem;
+  }
+  .back-link:hover { color: #222; }
+
+  .task-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .task-header h2 { margin: 0; }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .detail-card {
+    border: 2px solid #222;
+    padding: 1.25rem;
+    background: #fff;
+    margin-bottom: 0;
+  }
+  .detail-card h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    text-transform: uppercase;
+    color: #666;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0.5rem;
+  }
+
+  .form-grid, .info-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 1rem;
+    align-items: center;
+  }
+  .form-grid label, .info-grid label {
+    font-weight: bold;
+    font-size: 0.85rem;
+    color: #666;
+  }
+  .form-input {
+    padding: 0.35rem 0.5rem;
+    border: 2px solid #ddd;
+    font-size: 0.9rem;
+    font-family: inherit;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .form-input:focus { border-color: #222; outline: none; }
+  .form-static { font-size: 0.9rem; padding: 0.35rem 0; }
+  .text-muted { color: #999; }
+
+  .form-textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 2px solid #ddd;
+    font-size: 0.9rem;
+    font-family: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+  .form-textarea:focus { border-color: #222; outline: none; }
+
+  .task-flags {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .flag {
+    display: inline-block;
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    border: 2px solid;
+  }
+  .flag-pm { border-color: #e67e22; color: #e67e22; background: #fff8e1; }
+  .flag-author { border-color: #3498db; color: #3498db; background: #ebf5fb; }
+
+  /* ---- Mark Complete button ---- */
+  .complete-action {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #ddd;
+  }
+  .btn-complete {
+    background: #27ae60;
+    color: #fff;
+    border: 2px solid #222;
+    padding: 10px 28px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 #222;
+    transition: transform 0.1s, box-shadow 0.1s;
+    width: 100%;
+  }
+  .btn-complete:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 #222;
+  }
+  .btn-complete:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+  }
+  .complete-badge {
+    text-align: center;
+    font-weight: bold;
+    color: #27ae60;
+    font-size: 1rem;
+    padding: 0.75rem;
+    background: #eafaf1;
+    border: 2px solid #27ae60;
+  }
+
+  /* Flash animation for completion */
+  @keyframes completeFlash {
+    0% { background: #fff; }
+    30% { background: #27ae60; color: #fff; }
+    100% { background: #eafaf1; color: #222; }
+  }
+  .complete-flash {
+    animation: completeFlash 1s ease-out forwards;
+  }
+
+  /* ---- Save / action buttons ---- */
+  .form-actions { margin-bottom: 2rem; }
+  .btn-save {
+    background: #222;
+    color: #fff;
+    border: 2px solid #222;
+    padding: 8px 24px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .btn-save:hover { background: #444; }
+
+  .detail-section { margin-bottom: 2rem; }
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #222;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .section-header h3 { margin: 0; border: none; padding: 0; }
+  .btn-add {
+    background: #fff;
+    border: 2px solid #222;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+    text-decoration: none;
+    color: #222;
+  }
+  .btn-add:hover { background: #222; color: #fff; }
+
+  .empty-state { color: #999; font-style: italic; padding: 1rem 0; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    top: 1.5rem; right: 1.5rem;
+    padding: 1rem 1.5rem;
+    border: 2px solid #222;
+    font-size: 0.9rem; font-weight: bold;
+    z-index: 1001;
+    opacity: 0; transform: translateY(-10px);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .toast.visible { opacity: 1; transform: translateY(0); }
+  .toast.success { background: #eafaf1; border-color: #27ae60; color: #27ae60; }
+  .toast.error { background: #fdecea; border-color: #c0392b; color: #c0392b; }
+</style>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  function showToast(message, type) {
+    var toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast ' + type + ' visible';
+    setTimeout(function() { toast.classList.remove('visible'); }, 4000);
+  }
+
+  function markComplete(taskId) {
+    var btn = document.getElementById('btnComplete');
+    btn.disabled = true;
+    btn.textContent = 'Completing...';
+
+    fetch('/api/task/' + taskId + '/status', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({status: 'Complete'}),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        // Update the status dropdown
+        document.getElementById('status').value = 'Complete';
+
+        // Flash the header
+        var header = document.getElementById('task-header');
+        header.classList.add('complete-flash');
+
+        // Replace button with completed badge
+        btn.outerHTML = '<div class="complete-badge">Completed</div>';
+
+        showToast('Task marked complete! The next task in sequence is now active.', 'success');
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Mark Complete';
+        showToast('Error: ' + (data.error || 'Unknown'), 'error');
+      }
+    })
+    .catch(function(err) {
+      btn.disabled = false;
+      btn.textContent = 'Mark Complete';
+      showToast('Network error: ' + err.message, 'error');
+    });
+  }
+</script>
+{% endblock %}

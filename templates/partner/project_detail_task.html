@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.project_name }} — The Publishing Company{% endblock %}
+
+{% block content %}
+<div class="project-detail">
+  <p class="back-link">
+    <a href="{{ url_for('dashboard') }}">← Back to dashboard</a>
+  </p>
+
+  <h1>{{ project.project_name }}</h1>
+  <p class="subtitle">
+    <span class="status-badge status-{{ project.project_status|lower|replace(' ', '-') }}">{{ project.project_status }}</span>
+    {% if project.author_name %}&middot; {{ project.author_name }}{% endif %}
+  </p>
+
+  {% if project.book_title %}
+    <div class="card">
+      <h2>Project info</h2>
+      <dl>
+        <dt>Book title</dt>
+        <dd>{{ project.book_title }}</dd>
+      </dl>
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <h2>Your tasks</h2>
+    {% if project.tasks %}
+      <ul class="milestone-list">
+        {% for task in project.tasks %}
+          <li class="milestone">
+            <div class="milestone-header">
+              <span class="milestone-name">{{ task.name }}</span>
+              <span class="status-badge status-{{ task.status|lower|replace(' ', '-') }}">{{ task.status }}</span>
+            </div>
+            {% if task.module %}
+              <div class="milestone-meta">
+                {{ task.module }}{% if task.due_date %} &middot; Due {{ task.due_date }}{% endif %}
+              </div>
+            {% endif %}
+            {% if task.stage_description %}
+              <p class="milestone-desc">{{ task.stage_description }}</p>
+            {% endif %}
+            {% if task.instructions %}
+              <p class="milestone-desc"><strong>Instructions:</strong> {{ task.instructions }}</p>
+            {% endif %}
+
+            {# Files for this task #}
+            {% if task.files %}
+              <div style="margin-top: 0.5rem; padding-left: 1rem; border-left: 3px solid #ccc;">
+                {% for f in task.files %}
+                  <div style="margin-bottom: 0.25rem;">
+                    <span class="status-badge status-{{ f.direction|lower|replace(' ', '-') }}">v{{ f.version }}</span>
+                    {% if f.has_file %}
+                      <a href="{{ f.download_url }}" target="_blank" rel="noopener">{{ f.file_name }}</a>
+                    {% else %}
+                      {{ f.file_name }}
+                    {% endif %}
+                    <small>— {{ f.uploaded_by }}, {{ f.upload_date or '' }}</small>
+                    {% if f.notes %}<br><small>{{ f.notes }}</small>{% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            <div style="margin-top: 0.75rem; display: flex; gap: 0.75rem; align-items: center;">
+              <a href="{{ url_for('upload_file', task_id=task.id) }}" class="document-link">Upload file →</a>
+              <button type="button" class="btn-request-payment"
+                      onclick="showPaymentForm('{{ task.id }}', '{{ project.project_id }}', '{{ task.name }}')">
+                Request Payment
+              </button>
+            </div>
+
+            {# Inline payment request form — hidden until button clicked #}
+            <div id="payment-form-{{ task.id }}" class="payment-form" style="display: none;">
+              <div class="payment-form-inner">
+                <label><strong>Amount ($)</strong></label>
+                <input type="number" id="pay-amount-{{ task.id }}" step="0.01" min="0" placeholder="0.00" class="pay-input">
+                <label><strong>Type</strong></label>
+                <select id="pay-type-{{ task.id }}" class="pay-input">
+                  <option value="Partner Fee">Partner Fee</option>
+                  <option value="Referral Fee">Referral Fee</option>
+                  <option value="Bonus">Bonus</option>
+                  <option value="Reimbursement">Reimbursement</option>
+                </select>
+                <label><strong>Notes</strong></label>
+                <input type="text" id="pay-notes-{{ task.id }}" placeholder="Invoice # or description" class="pay-input">
+                <div class="payment-form-buttons">
+                  <button type="button" class="btn-submit-payment"
+                          onclick="submitPayment('{{ task.id }}', '{{ project.project_id }}')">
+                    Submit Request
+                  </button>
+                  <button type="button" class="btn-cancel-payment"
+                          onclick="hidePaymentForm('{{ task.id }}')">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="hint">No tasks assigned to you on this project.</p>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+  .btn-request-payment {
+    background: #fff;
+    border: 2px solid #222;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .btn-request-payment:hover { background: #222; color: #fff; }
+
+  .payment-form {
+    margin-top: 0.75rem;
+    padding: 1rem;
+    border: 2px solid #222;
+    background: #f5f5f0;
+  }
+  .payment-form-inner {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 0.75rem;
+    align-items: center;
+  }
+  .pay-input {
+    padding: 0.35rem 0.5rem;
+    border: 2px solid #ddd;
+    font-size: 0.9rem;
+    font-family: inherit;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .pay-input:focus { border-color: #222; outline: none; }
+
+  .payment-form-buttons {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .btn-submit-payment {
+    background: #27ae60;
+    color: #fff;
+    border: 2px solid #222;
+    padding: 6px 16px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .btn-submit-payment:hover { background: #2ecc71; }
+  .btn-submit-payment:disabled { background: #94a3b8; cursor: not-allowed; }
+  .btn-cancel-payment {
+    background: #fff;
+    color: #222;
+    border: 2px solid #222;
+    padding: 6px 16px;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .btn-cancel-payment:hover { background: #f5f5f0; }
+
+  .toast {
+    position: fixed;
+    top: 1.5rem; right: 1.5rem;
+    padding: 1rem 1.5rem;
+    border: 2px solid #222;
+    font-size: 0.9rem; font-weight: bold;
+    z-index: 1001;
+    opacity: 0; transform: translateY(-10px);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .toast.visible { opacity: 1; transform: translateY(0); }
+  .toast.success { background: #eafaf1; border-color: #27ae60; color: #27ae60; }
+  .toast.error { background: #fdecea; border-color: #c0392b; color: #c0392b; }
+</style>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  function showToast(message, type) {
+    var toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast ' + type + ' visible';
+    setTimeout(function() { toast.classList.remove('visible'); }, 4000);
+  }
+
+  function showPaymentForm(taskId, projectId, taskName) {
+    document.getElementById('payment-form-' + taskId).style.display = 'block';
+  }
+  function hidePaymentForm(taskId) {
+    document.getElementById('payment-form-' + taskId).style.display = 'none';
+  }
+
+  function submitPayment(taskId, projectId) {
+    var amount = document.getElementById('pay-amount-' + taskId).value;
+    var type = document.getElementById('pay-type-' + taskId).value;
+    var notes = document.getElementById('pay-notes-' + taskId).value;
+
+    if (!amount || parseFloat(amount) <= 0) {
+      showToast('Please enter an amount', 'error');
+      return;
+    }
+
+    // Get the partner ID from the session (it's in the page context)
+    var partnerId = '{{ session.get("linked_partner_id", "") }}';
+
+    fetch('/api/disbursement', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        amount: parseFloat(amount),
+        type: type,
+        notes: notes,
+        project_id: projectId,
+        task_id: taskId,
+        partner_id: partnerId,
+      }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        showToast('Payment request submitted!', 'success');
+        hidePaymentForm(taskId);
+        // Clear the form
+        document.getElementById('pay-amount-' + taskId).value = '';
+        document.getElementById('pay-notes-' + taskId).value = '';
+      } else {
+        showToast('Error: ' + (data.error || 'Unknown'), 'error');
+      }
+    })
+    .catch(function(err) {
+      showToast('Network error: ' + err.message, 'error');
+    });
+  }
+</script>
+{% endblock %}

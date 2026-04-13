@@ -1,0 +1,417 @@
+{% extends "command_center/base_cc.html" %}
+
+{% block cc_content %}
+<a href="{{ url_for('command_center', tab='partners') }}" class="back-link">&larr; All Partners</a>
+
+<div class="project-header">
+  <h2>{{ partner.preferred_name or partner.name }}</h2>
+  <span class="status-badge status-{{ partner.type|lower|replace(' ', '-') }}">{{ partner.type }}</span>
+  <span class="status-badge status-{{ partner.status|lower }}">{{ partner.status }}</span>
+  {% if partner.type == 'Task Partner' %}
+    <a href="{{ url_for('admin_preview_start', role_type='task-partner', record_id=partner.id) }}" class="btn-preview btn-preview-partner">View as Partner</a>
+  {% elif partner.type == 'Channel Partner' %}
+    <a href="{{ url_for('admin_preview_start', role_type='channel-partner', record_id=partner.id) }}" class="btn-preview btn-preview-partner">View as Partner</a>
+  {% endif %}
+</div>
+
+{# ---- Partner Info + Payments Summary ---- #}
+<div class="detail-grid">
+  <div class="detail-card">
+    <h3>About</h3>
+    {% if partner.bio %}
+      <p class="partner-bio">{{ partner.bio }}</p>
+    {% endif %}
+    <dl>
+      {% if partner.preferred_name and partner.preferred_name != partner.name %}
+        <dt>Full Name</dt>
+        <dd>{{ partner.name }}</dd>
+      {% endif %}
+      <dt>Email</dt>
+      <dd>{{ partner.email or '—' }}</dd>
+      <dt>Specialties</dt>
+      <dd>
+        {% if partner.specialties %}
+          {% for s in partner.specialties %}
+            <span class="specialty-tag">{{ s }}</span>
+          {% endfor %}
+        {% else %}
+          —
+        {% endif %}
+      </dd>
+      {% if partner.hourly_rate %}
+        <dt>Rate</dt>
+        <dd>${{ '{:,.0f}'.format(partner.hourly_rate) }}/hr</dd>
+      {% endif %}
+      {% if partner.portfolio_url %}
+        <dt>Portfolio</dt>
+        <dd><a href="{{ partner.portfolio_url }}" target="_blank">View portfolio &rarr;</a></dd>
+      {% endif %}
+    </dl>
+    {% if partner.notes %}
+      <div class="partner-notes">
+        <strong>Notes:</strong> {{ partner.notes }}
+      </div>
+    {% endif %}
+
+    {# Send MSA button for Channel Partners #}
+    {% if partner.type == 'Channel Partner' %}
+      <div class="doc-actions">
+        <button class="btn-send-doc btn-send-msa"
+                onclick="sendMSA('{{ partner.id }}', this)">
+          Send MSA
+        </button>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="detail-card">
+    <h3>Payment Summary</h3>
+    <dl>
+      <dt>Total Paid</dt>
+      <dd class="big-number">${{ '{:,.0f}'.format(partner.total_paid) }}</dd>
+      <dt>Pending</dt>
+      <dd class="big-number {% if partner.total_pending %}text-warning{% endif %}">
+        ${{ '{:,.0f}'.format(partner.total_pending) }}
+      </dd>
+      <dt>Disbursements</dt>
+      <dd>{{ partner.disbursements|length }}</dd>
+      <dt>Projects</dt>
+      <dd>{{ partner.projects|length }}</dd>
+      <dt>Tasks</dt>
+      <dd>{{ partner.tasks|length }}</dd>
+    </dl>
+  </div>
+</div>
+
+{# ---- Projects ---- #}
+<div class="detail-section">
+  <h3>Projects ({{ partner.projects|length }})</h3>
+  {% if partner.projects %}
+    <table class="cc-table">
+      <thead>
+        <tr>
+          <th>Project</th>
+          <th>Author</th>
+          <th>Service</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in partner.projects %}
+          <tr>
+            <td><a href="{{ url_for('command_center_project_detail', project_id=p.id) }}"><strong>{{ p.name }}</strong></a></td>
+            <td>{{ p.author_name or '—' }}</td>
+            <td>{{ p.service or '—' }}</td>
+            <td><span class="status-badge status-{{ p.status|lower|replace(' ', '-') }}">{{ p.status }}</span></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty-state">No projects linked.</p>
+  {% endif %}
+</div>
+
+{# ---- Disbursements ---- #}
+<div class="detail-section">
+  <h3>Disbursements ({{ partner.disbursements|length }})</h3>
+  {% if partner.disbursements %}
+    <table class="cc-table">
+      <thead>
+        <tr>
+          <th>Disbursement</th>
+          <th>Type</th>
+          <th>Project</th>
+          <th>Requested</th>
+          <th>Paid</th>
+          <th>Status</th>
+          <th>Date</th>
+          <th>Method</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in partner.disbursements %}
+          <tr>
+            <td>{{ d.name }}</td>
+            <td>{{ d.type or '—' }}</td>
+            <td>{{ d.project_name or '—' }}</td>
+            <td>${{ '{:,.0f}'.format(d.amount_requested or 0) }}</td>
+            <td>${{ '{:,.0f}'.format(d.amount_paid or 0) }}</td>
+            <td><span class="status-badge status-{{ d.status|lower|replace(' ', '-') }}">{{ d.status or '—' }}</span></td>
+            <td>{{ d.paid_date or d.requested_date or '—' }}</td>
+            <td>{{ d.payment_method or '—' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty-state">No disbursements yet.</p>
+  {% endif %}
+</div>
+
+<style>
+  .back-link {
+    display: inline-block;
+    margin-bottom: 1rem;
+    color: #666;
+    text-decoration: none;
+    font-size: 0.9rem;
+  }
+  .back-link:hover { color: #222; }
+
+  .project-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .project-header h2 { margin: 0; }
+  .btn-preview {
+    margin-left: auto;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-decoration: none;
+    border: 2px solid #222;
+    color: #fff;
+  }
+  .btn-preview:hover { color: #fff; }
+  .btn-preview-partner { background: #1a9e7a; }
+  .btn-preview-partner:hover { background: #168a6a; }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .detail-card {
+    border: 2px solid #222;
+    padding: 1.25rem;
+    background: #fff;
+  }
+  .detail-card h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    text-transform: uppercase;
+    color: #666;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0.5rem;
+  }
+  .detail-card dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.4rem 1rem;
+    margin: 0;
+  }
+  .detail-card dt {
+    font-weight: bold;
+    font-size: 0.85rem;
+    color: #666;
+  }
+  .detail-card dd {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  .partner-bio {
+    margin: 0 0 1rem 0;
+    line-height: 1.5;
+    color: #333;
+  }
+  .partner-notes {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #ddd;
+    font-size: 0.85rem;
+    color: #555;
+    line-height: 1.4;
+  }
+
+  .specialty-tag {
+    display: inline-block;
+    background: #f0f0ea;
+    border: 1px solid #ddd;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    margin: 1px 2px;
+  }
+
+  .big-number {
+    font-size: 1.3rem;
+    font-weight: bold;
+  }
+
+  .doc-actions {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid #ddd;
+  }
+
+  .detail-section {
+    margin-bottom: 2rem;
+  }
+  .detail-section h3 {
+    border-bottom: 2px solid #222;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .empty-state {
+    color: #999;
+    font-style: italic;
+    padding: 1rem 0;
+  }
+  .text-warning { color: #e67e22; }
+
+  /* Send Document buttons */
+  .btn-send-doc {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .btn-send-doc:hover { background: #1d4ed8; }
+  .btn-send-doc:disabled { background: #94a3b8; cursor: not-allowed; }
+  .btn-send-doc.sent { background: #16a34a; }
+  .btn-send-msa { background: #7c3aed; }
+  .btn-send-msa:hover { background: #6d28d9; }
+
+  /* Modal + Toast (same as project detail) */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal-box {
+    background: #fff;
+    border: 3px solid #222;
+    padding: 2rem;
+    max-width: 420px;
+    width: 90%;
+  }
+  .modal-box h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1.1rem;
+    border: none;
+    padding: 0;
+    text-transform: none;
+    color: #222;
+  }
+  .modal-box p {
+    margin: 0 0 1.5rem 0;
+    color: #555;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+  .modal-buttons {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+  }
+  .modal-btn {
+    padding: 8px 20px;
+    border: 2px solid #222;
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .modal-btn-cancel { background: #fff; color: #222; }
+  .modal-btn-cancel:hover { background: #f5f5f0; }
+  .modal-btn-confirm { background: #222; color: #fff; border-color: #222; }
+  .modal-btn-confirm:hover { background: #444; }
+  .toast {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    padding: 1rem 1.5rem;
+    border: 2px solid #222;
+    font-size: 0.9rem;
+    font-weight: bold;
+    z-index: 1001;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .toast.visible { opacity: 1; transform: translateY(0); }
+  .toast.success { background: #eafaf1; border-color: #27ae60; color: #27ae60; }
+  .toast.error { background: #fdecea; border-color: #c0392b; color: #c0392b; }
+</style>
+
+{# Modal + Toast #}
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box">
+    <h3 id="modalTitle">Send Document</h3>
+    <p id="modalMessage">Are you sure?</p>
+    <div class="modal-buttons">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn modal-btn-confirm" id="modalConfirm">Send</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  var pendingAction = null;
+  function showModal(title, message, onConfirm) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalMessage').textContent = message;
+    document.getElementById('confirmModal').classList.add('visible');
+    pendingAction = onConfirm;
+    document.getElementById('modalConfirm').onclick = function() {
+      closeModal();
+      if (pendingAction) pendingAction();
+    };
+  }
+  function closeModal() {
+    document.getElementById('confirmModal').classList.remove('visible');
+    pendingAction = null;
+  }
+  document.getElementById('confirmModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+  function showToast(message, type) {
+    var toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast ' + type + ' visible';
+    setTimeout(function() { toast.classList.remove('visible'); }, 4000);
+  }
+
+  function sendMSA(partnerId, btn) {
+    showModal(
+      'Send MSA',
+      'This will generate the MSA and send it to this partner for e-signature. Continue?',
+      function() {
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+        fetch('/api/send-msa/' + partnerId + '?type=partner', { method: 'POST' })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.success) {
+              btn.textContent = 'Sent';
+              btn.classList.add('sent');
+              showToast('MSA sent for signature!', 'success');
+            } else {
+              showToast('Error: ' + (data.error || 'Unknown error'), 'error');
+              btn.disabled = false;
+              btn.textContent = 'Send MSA';
+            }
+          })
+          .catch(function(err) {
+            showToast('Network error: ' + err.message, 'error');
+            btn.disabled = false;
+            btn.textContent = 'Send MSA';
+          });
+      }
+    );
+  }
+</script>
+{% endblock %}

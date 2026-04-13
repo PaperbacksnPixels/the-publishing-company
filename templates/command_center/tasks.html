@@ -1,0 +1,176 @@
+{% extends "command_center/base_cc.html" %}
+
+{% block cc_content %}
+{# Summary cards #}
+{% set overdue = tasks|selectattr('is_overdue')|list %}
+{% set due_soon = tasks|selectattr('is_due_soon')|list %}
+{% set in_progress = tasks|selectattr('status', 'equalto', 'In Progress')|list %}
+
+{# Action banner for Admin #}
+{% set ns = namespace(action_count=0) %}
+{% for task in tasks %}
+  {% if task.next_step and task.next_step.action %}
+    {% set ns.action_count = ns.action_count + 1 %}
+  {% endif %}
+{% endfor %}
+
+{% if ns.action_count > 0 %}
+  <div class="action-banner {% if overdue %}urgent{% endif %}">
+    <span class="count">{{ ns.action_count }}</span>
+    task{{ 's' if ns.action_count != 1 }} need{{ '' if ns.action_count != 1 else 's' }} your attention
+  </div>
+{% endif %}
+
+<div class="cc-summary">
+  <div class="cc-summary-card">
+    <h3>Overdue</h3>
+    <div class="number {% if overdue %}danger{% endif %}">{{ overdue|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>Due This Week</h3>
+    <div class="number {% if due_soon %}warning{% endif %}">{{ due_soon|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>In Progress</h3>
+    <div class="number">{{ in_progress|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>Total Tasks</h3>
+    <div class="number">{{ tasks|length }}</div>
+  </div>
+</div>
+
+{# Task table #}
+<table class="cc-table">
+  <thead>
+    <tr>
+      <th>Task</th>
+      <th>Project</th>
+      <th>Partner</th>
+      <th>Due</th>
+      <th>Status</th>
+      <th>Next Step</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for task in tasks %}
+      <tr class="{% if task.is_overdue %}overdue{% elif task.is_due_soon %}due-soon{% endif %}"
+          id="task-row-{{ task.id }}">
+        <td>
+          <a href="{{ url_for('command_center_task_detail', task_id=task.id) }}">
+            <strong>{{ task.name }}</strong>
+          </a>
+          {% if task.module %}<br><small>{{ task.module }}</small>{% endif %}
+          {% if task.requires_pm %}<br><small>&#x26a0; Requires PM approval</small>{% endif %}
+        </td>
+        <td>{{ task.project_name }}</td>
+        <td>{{ task.partner_name or '—' }}</td>
+        <td>
+          {{ task.due_date or '—' }}
+          {% if task.is_overdue %}<br><small style="color: #c0392b;">OVERDUE</small>{% endif %}
+        </td>
+        <td>
+          <select class="status-select" data-task-id="{{ task.id }}" onchange="updateStatus(this)">
+            {% for s in ['Not Started', 'In Progress', 'Complete', 'Blocked', 'On Hold', 'Waiting'] %}
+              <option value="{{ s }}" {% if task.status == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td>
+          {% if task.next_step %}
+            <span class="next-step {% if task.next_step.action %}action-needed{% endif %}{% if task.next_step.up_next %} up-next{% endif %}" style="display:inline-block;">
+              {{ task.next_step.text }}
+            </span>
+          {% endif %}
+        </td>
+        <td>
+          {% if task.status != 'Complete' %}
+            <button class="btn-small" onclick="quickComplete('{{ task.id }}', this)">Done</button>
+          {% endif %}
+          <a href="{{ url_for('upload_file', task_id=task.id) }}" class="btn-small" style="text-decoration:none;">Upload</a>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+// Inline status update via AJAX
+function updateStatus(selectEl) {
+  const taskId = selectEl.dataset.taskId;
+  const newStatus = selectEl.value;
+
+  fetch(`/api/task/${taskId}/status`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({status: newStatus}),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      selectEl.classList.add('changed');
+      // Update row styling
+      const row = document.getElementById(`task-row-${taskId}`);
+      if (newStatus === 'Complete') {
+        row.classList.remove('overdue', 'due-soon');
+      }
+      setTimeout(() => selectEl.classList.remove('changed'), 2000);
+    } else {
+      alert('Update failed: ' + (data.error || 'Unknown error'));
+    }
+  })
+  .catch(() => alert('Network error — could not update status.'));
+}
+
+// Quick "Done" button — with satisfying completion animation
+function quickComplete(taskId, btn) {
+  // Disable button immediately so you can't double-click
+  btn.disabled = true;
+  btn.textContent = '...';
+
+  fetch(`/api/task/${taskId}/status`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({status: 'Complete'}),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      const row = document.getElementById(`task-row-${taskId}`);
+      const select = row.querySelector('.status-select');
+      const nextStepCell = row.querySelector('.next-step');
+
+      // Flash the row green
+      row.classList.remove('overdue', 'due-soon');
+      row.classList.add('task-complete-flash');
+
+      // Pop in a checkmark where the button was
+      btn.style.display = 'none';
+      const check = document.createElement('span');
+      check.className = 'check-pop';
+      check.textContent = '\u2714';
+      btn.parentElement.prepend(check);
+
+      // Update the dropdown
+      select.value = 'Complete';
+
+      // Update the next-step text
+      if (nextStepCell) {
+        nextStepCell.className = 'next-step';
+        nextStepCell.textContent = 'Complete';
+      }
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Done';
+      alert('Update failed: ' + (data.error || 'Unknown error'));
+    }
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.textContent = 'Done';
+    alert('Network error — could not update status.');
+  });
+}
+</script>
+{% endblock %}
