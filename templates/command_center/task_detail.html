@@ -72,16 +72,13 @@
           {% endif %}
         </div>
 
-        <label>Assigned To</label>
-        <div>
-          {% if task.partner_id %}
-            <a href="{{ url_for('command_center_partner_detail', partner_id=task.partner_id) }}">
-              <strong>{{ task.partner_name }}</strong>
-            </a>
-          {% else %}
-            <span class="text-muted">Unassigned</span>
-          {% endif %}
-        </div>
+        <label for="assigned_partner">Assigned To</label>
+        <select name="assigned_partner" id="assigned_partner" class="form-input">
+          <option value="">Unassigned</option>
+          {% for p in partners %}
+            <option value="{{ p.id }}" {% if task.partner_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+          {% endfor %}
+        </select>
       </div>
 
       {# ---- Mark Complete button ---- #}

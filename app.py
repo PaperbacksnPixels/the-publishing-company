@@ -39,6 +39,7 @@ from airtable_helpers import get_record, get_records
 from config import (
     PROJECTS_TABLE, PROJ_NAME, PROJ_STATUS, PROJ_SERVICE,
     TASKS_TABLE, TASK_NAME, TASK_STATUS, TASK_DUE_DATE,
+    TASK_ASSIGNED_PARTNER,
 )
 
 # Supabase Auth wrapper + decorators
@@ -634,6 +635,14 @@ def register_routes(app):
             if new_notes is not None:
                 updates["fldGlObVe6dyOSZci"] = new_notes
 
+            # Assigned Partner — linked record field (needs to be a list)
+            new_partner = request.form.get("assigned_partner")
+            if new_partner:
+                updates[TASK_ASSIGNED_PARTNER] = [new_partner]
+            elif new_partner == "":
+                # User chose "Unassigned" — clear the link
+                updates[TASK_ASSIGNED_PARTNER] = []
+
             if updates:
                 from config import TASK_STATUS as TS, TASK_DUE_DATE as TD
                 result = update_task(task_id, updates)
@@ -649,9 +658,13 @@ def register_routes(app):
             flash("Task not found.", "error")
             return redirect(url_for("command_center", tab="tasks"))
 
+        # Fetch partners for the assignment dropdown
+        partners = get_all_partners()
+
         return render_template(
             "command_center/task_detail.html",
             task=task,
+            partners=partners,
         )
 
     @app.route("/command-center/project/<project_id>", methods=["GET", "POST"])
