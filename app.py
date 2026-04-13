@@ -894,41 +894,48 @@ def register_routes(app):
                     flash("Project name is required.", "error")
                     return redirect(url_for("project_startup"))
 
-                fields = {
-                    PROJ_NAME: project_name,
-                    PROJ_SERVICE: service,
-                    PROJ_STATUS: "Active",
-                    PROJ_START_DATE: start_date,
-                }
-                if author_id:
-                    fields[PROJ_AUTHOR] = [author_id]
-
-                result = create_record(PROJECTS_TABLE, fields)
-                if not result:
-                    flash("Could not create project.", "error")
-                    return redirect(url_for("project_startup"))
-
-                project_id = result.get("id")
-
-                # Parse start date so milestones can chain due dates sequentially
                 try:
-                    parsed_start = date.fromisoformat(start_date)
-                except (ValueError, TypeError):
-                    parsed_start = date.today()
+                    fields = {
+                        PROJ_NAME: project_name,
+                        PROJ_SERVICE: service,
+                        PROJ_STATUS: "Active",
+                        PROJ_START_DATE: start_date,
+                    }
+                    if author_id:
+                        fields[PROJ_AUTHOR] = [author_id]
 
-                # Inject milestones from the Milestone Library
-                if service:
-                    count = inject_milestones(project_id, service, start_date=parsed_start)
-                    flash(f"Project created with {count} tasks from the {service} template.", "success")
-                else:
-                    flash("Project created (no service selected — no tasks injected).", "success")
+                    result = create_record(PROJECTS_TABLE, fields)
+                    if not result:
+                        flash("Could not create project in Airtable.", "error")
+                        return redirect(url_for("project_startup"))
 
-                # Auto-create deposit invoice
-                dep_invoice = create_deposit_invoice(project_id)
-                if dep_invoice:
-                    flash("Deposit invoice created.", "success")
+                    project_id = result.get("id")
 
-                return redirect(url_for("command_center_project_detail", project_id=project_id))
+                    # Parse start date so milestones can chain due dates
+                    try:
+                        parsed_start = date.fromisoformat(start_date)
+                    except (ValueError, TypeError):
+                        parsed_start = date.today()
+
+                    # Inject milestones from the Milestone Library
+                    if service:
+                        count = inject_milestones(project_id, service, start_date=parsed_start)
+                        flash(f"Project created with {count} tasks from the {service} template.", "success")
+                    else:
+                        flash("Project created (no service selected — no tasks injected).", "success")
+
+                    # Auto-create deposit invoice
+                    dep_invoice = create_deposit_invoice(project_id)
+                    if dep_invoice:
+                        flash("Deposit invoice created.", "success")
+
+                    return redirect(url_for("command_center_project_detail", project_id=project_id))
+
+                except Exception as e:
+                    # Catch any unexpected errors so they show as a flash
+                    # instead of a blank 500 page
+                    flash(f"Error creating project: {e}", "error")
+                    return redirect(url_for("project_startup"))
 
             elif mode == "activate":
                 # Activate an existing Lead project
