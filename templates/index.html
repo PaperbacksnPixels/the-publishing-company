@@ -11,4 +11,18 @@
     <a href="{{ url_for('login') }}" class="btn btn-primary">Log in</a>
   </div>
 </div>
+
+{# Catch Supabase implicit-flow hash fragments that land on the root URL #}
+<script>
+(function () {
+  var hash = window.location.hash.substring(1);
+  if (!hash) return;
+  var params = new URLSearchParams(hash);
+  var token = params.get('access_token');
+  var type = params.get('type');
+  if (token && type === 'recovery') {
+    window.location.href = '/reset-password?token=' + encodeURIComponent(token);
+  }
+})();
+</script>
 {% endblock %}

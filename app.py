@@ -143,9 +143,21 @@ def register_routes(app):
         """
         Landing page. If logged in, redirect to dashboard.
         Otherwise, show a simple welcome with a login link.
+
+        Also handles Supabase auth redirects — Supabase sometimes sends
+        users to the root URL with a ?code= param or #access_token= hash
+        regardless of what redirect_to we requested.
         """
+        # --- Catch Supabase PKCE code at root ---
+        code = request.args.get("code")
+        if code:
+            return redirect(url_for("auth_callback", code=code))
+
         if session.get("user_id"):
             return redirect(url_for("dashboard"))
+
+        # If there might be a hash fragment (#access_token=...), the
+        # index template includes a tiny JS snippet to catch it.
         return render_template("index.html")
 
     @app.route("/ping")
