@@ -777,6 +777,76 @@ def get_files_for_task(task_id):
     return files
 
 
+def get_all_files_by_task():
+    """
+    Bulk-fetch ALL project files in a SINGLE Airtable call, then group
+    them by their linked task ID. Used by Command Center to avoid
+    calling get_files_for_task() hundreds of times (once per task).
+
+    Returns a dict: {task_id: [file_dict, ...]}
+    Each file_dict has the same shape as get_files_for_task() returns.
+
+    WHY THIS EXISTS:
+      get_files_for_task() fetches the entire Project Files table every
+      time it's called. If Command Center loops over 300 tasks, that's
+      300 full-table fetches = 30+ seconds. This helper does ONE fetch
+      and lets the caller look up files in-memory.
+    """
+    all_records = get_records(PROJECT_FILES_TABLE)
+
+    files_by_task = {}
+    for r in all_records:
+        fields = r.get("fields", {})
+
+        # Airtable attachments are a list of dicts with url, filename, size, type
+        attachments = fields.get(PF_FILE, [])
+        attachment = attachments[0] if attachments else None
+
+        # Check if we have a locally stored file (fallback for localhost)
+        notes_raw = fields.get(PF_NOTES, "")
+        stored_filename = ""
+        display_notes = notes_raw
+        if "[stored:" in notes_raw:
+            start = notes_raw.index("[stored:") + len("[stored:")
+            end = notes_raw.index("]", start)
+            stored_filename = notes_raw[start:end]
+            display_notes = notes_raw[end + 1:].strip()
+
+        if attachment:
+            download_url = attachment.get("url", "")
+        elif stored_filename:
+            download_url = f"/uploads/{stored_filename}"
+        else:
+            download_url = ""
+
+        file_dict = {
+            "id": r.get("id"),
+            "file_name": fields.get(PF_FILE_NAME, "(unnamed)"),
+            "version": fields.get(PF_VERSION, 1),
+            "file_type": fields.get(PF_FILE_TYPE, ""),
+            "uploaded_by": fields.get(PF_UPLOADED_BY, ""),
+            "upload_date": fields.get(PF_UPLOAD_DATE, ""),
+            "notes": display_notes,
+            "direction": fields.get(PF_DIRECTION, ""),
+            "has_file": bool(attachment or stored_filename),
+            "download_url": download_url,
+            "original_filename": attachment.get("filename", "") if attachment else fields.get(PF_FILE_NAME, ""),
+            "file_size": attachment.get("size", 0) if attachment else 0,
+        }
+
+        # A file may be linked to multiple tasks (rare but possible)
+        # Add it to each task's bucket
+        linked_tasks = fields.get(PF_TASK, []) or []
+        for tid in linked_tasks:
+            files_by_task.setdefault(tid, []).append(file_dict)
+
+    # Sort each task's files: newest version first
+    for tid in files_by_task:
+        files_by_task[tid].sort(key=lambda f: f.get("version") or 0, reverse=True)
+
+    return files_by_task
+
+
 def get_files_for_project(project_id):
     """
     Fetch all file records linked to a project.
@@ -1069,37 +1139,39 @@ def get_all_tasks():
     today = date.today()
     week_from_now = today + timedelta(days=7)
 
+    # PERFORMANCE: pre-fetch everything we need in 3 bulk calls instead of
+    # looking each record up inside the loop. Without this, a 200-task
+    # page made ~200 sequential Airtable calls for files alone (see
+    # get_all_files_by_task docstring), which blew past gunicorn's
+    # 30-second worker timeout.
+    all_projects = get_records(PROJECTS_TABLE)
+    project_names = {
+        p.get("id"): p.get("fields", {}).get(PROJ_NAME, "")
+        for p in all_projects
+    }
+
+    all_partners = get_records(PARTNERS_TABLE)
+    partner_names = {
+        p.get("id"): p.get("fields", {}).get(PARTNER_NAME, "")
+        for p in all_partners
+    }
+
+    files_by_task = get_all_files_by_task()
+
     tasks = []
-    # Cache project and partner lookups to avoid repeated API calls
-    project_cache = {}
-    partner_cache = {}
 
     for r in records:
         fields = r.get("fields", {})
 
-        # Get project name
+        # Get project name from pre-fetched dict
         project_links = fields.get("fldj1YwlwJbfK956K", [])
         project_id = project_links[0] if project_links else ""
-        project_name = ""
-        if project_id:
-            if project_id not in project_cache:
-                proj = get_record(PROJECTS_TABLE, project_id)
-                project_cache[project_id] = proj
-            proj = project_cache.get(project_id)
-            if proj:
-                project_name = proj.get("fields", {}).get(PROJ_NAME, "")
+        project_name = project_names.get(project_id, "") if project_id else ""
 
-        # Get assigned partner name
+        # Get assigned partner name from pre-fetched dict
         partner_links = fields.get(TASK_ASSIGNED_PARTNER, [])
         partner_id = partner_links[0] if partner_links else ""
-        partner_name = ""
-        if partner_id:
-            if partner_id not in partner_cache:
-                partner = get_record(PARTNERS_TABLE, partner_id)
-                partner_cache[partner_id] = partner
-            partner = partner_cache.get(partner_id)
-            if partner:
-                partner_name = partner.get("fields", {}).get(PARTNER_NAME, "")
+        partner_name = partner_names.get(partner_id, "") if partner_id else ""
 
         status = fields.get(TASK_STATUS, "Not Started")
         due_date_str = fields.get(TASK_DUE_DATE, "")
@@ -1136,7 +1208,7 @@ def get_all_tasks():
             urgency = 5
 
         task_id = r.get("id")
-        task_files = get_files_for_task(task_id)
+        task_files = files_by_task.get(task_id, [])
         task_dict = {
             "id": task_id,
             "name": fields.get(TASK_NAME, "(unnamed)"),
