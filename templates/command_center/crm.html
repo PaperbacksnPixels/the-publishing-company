@@ -1,0 +1,200 @@
+{% extends "command_center/base_cc.html" %}
+
+{# ---- Macro: the reusable lead table. Must come BEFORE first use. ---- #}
+{% macro _lead_table(rows) %}
+<table class="cc-table">
+  <thead>
+    <tr>
+      <th>Name / Company</th>
+      <th>Source</th>
+      <th>Topic</th>
+      <th>Fit</th>
+      <th>Budget</th>
+      <th>Next Follow-Up</th>
+      <th>Last Touch</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for lead in rows %}
+    <tr class="{% if lead.is_overdue %}overdue{% elif lead.is_due_this_week %}due-soon{% endif %}">
+      <td>
+        <a href="{{ url_for('command_center_project_detail', project_id=lead.id) }}">
+          <strong>{{ lead.author_name or '(no name)' }}</strong>
+        </a>
+        {% if lead.author_email %}
+          <div class="crm-meta">{{ lead.author_email }}</div>
+        {% endif %}
+        {% if lead.referred_by %}
+          <div class="crm-meta">via {{ lead.referred_by }}</div>
+        {% endif %}
+      </td>
+      <td>{{ lead.source or '—' }}</td>
+      <td class="crm-topic">{{ lead.book_topic[:80] if lead.book_topic else '—' }}{% if lead.book_topic and lead.book_topic|length > 80 %}…{% endif %}</td>
+      <td>
+        {% if lead.fit_score %}
+          <span class="crm-fit-badge">{{ lead.fit_score.split(' ')[0] }}</span>
+        {% else %}—{% endif %}
+      </td>
+      <td>{{ lead.budget or '—' }}</td>
+      <td>
+        {% if lead.next_followup %}
+          <strong>{{ lead.next_followup }}</strong>
+        {% else %}
+          <em class="crm-meta">not set</em>
+        {% endif %}
+      </td>
+      <td>
+        {% if lead.last_interaction_date %}
+          {{ lead.last_interaction_date }}
+          <div class="crm-meta">{{ lead.interaction_count }} touchpoint{% if lead.interaction_count != 1 %}s{% endif %}</div>
+        {% else %}
+          <em class="crm-meta">never</em>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}
+
+{% block cc_content %}
+
+{# ---- Summary cards ---- #}
+<div class="cc-summary">
+  <div class="cc-summary-card">
+    <h3>Total Leads</h3>
+    <div class="number">{{ leads|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>Overdue</h3>
+    <div class="number {% if overdue_leads %}danger{% endif %}">{{ overdue_leads|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>This Week</h3>
+    <div class="number {% if this_week_leads %}warning{% endif %}">{{ this_week_leads|length }}</div>
+  </div>
+  <div class="cc-summary-card">
+    <h3>Later / No Date</h3>
+    <div class="number">{{ later_leads|length }}</div>
+  </div>
+</div>
+
+<div class="crm-actions">
+  <a href="{{ url_for('new_lead') }}" class="btn-new-project">+ New Lead</a>
+</div>
+
+{# ---- Lead list, grouped by urgency ---- #}
+
+{% if overdue_leads %}
+<section class="crm-group crm-group-overdue">
+  <h3 class="crm-group-title">
+    <span class="crm-group-dot"></span>
+    Overdue follow-ups
+    <span class="crm-group-count">{{ overdue_leads|length }}</span>
+  </h3>
+  {{ _lead_table(overdue_leads) }}
+</section>
+{% endif %}
+
+{% if this_week_leads %}
+<section class="crm-group crm-group-week">
+  <h3 class="crm-group-title">
+    <span class="crm-group-dot"></span>
+    This week
+    <span class="crm-group-count">{{ this_week_leads|length }}</span>
+  </h3>
+  {{ _lead_table(this_week_leads) }}
+</section>
+{% endif %}
+
+{% if later_leads %}
+<section class="crm-group">
+  <h3 class="crm-group-title">
+    <span class="crm-group-dot"></span>
+    Later / no date set
+    <span class="crm-group-count">{{ later_leads|length }}</span>
+  </h3>
+  {{ _lead_table(later_leads) }}
+</section>
+{% endif %}
+
+{% if not leads %}
+<div class="crm-empty">
+  <h3>No leads yet</h3>
+  <p>Click <strong>+ New Lead</strong> to add the first one.</p>
+</div>
+{% endif %}
+
+<style>
+  .crm-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
+  }
+  .crm-group {
+    margin-bottom: 2rem;
+  }
+  .crm-group-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 0.75rem 0;
+    opacity: 0.8;
+  }
+  .crm-group-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    background: #999;
+    border: 1.5px solid var(--black);
+  }
+  .crm-group-overdue .crm-group-dot { background: #c0392b; }
+  .crm-group-week .crm-group-dot { background: #e67e22; }
+  .crm-group-count {
+    background: var(--black);
+    color: var(--white);
+    padding: 1px 8px;
+    font-size: 0.7rem;
+    margin-left: 0.25rem;
+  }
+  .crm-meta {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 2px;
+  }
+  .crm-topic {
+    max-width: 240px;
+    font-size: 0.85rem;
+  }
+  .crm-fit-badge {
+    display: inline-block;
+    min-width: 24px;
+    text-align: center;
+    padding: 2px 8px;
+    border: 2px solid var(--black);
+    background: var(--yellow);
+    font-weight: 800;
+    font-size: 0.9rem;
+  }
+  .crm-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    border: 2px dashed #ccc;
+    background: #fafaf7;
+  }
+  .crm-empty h3 {
+    margin: 0 0 0.5rem 0;
+    font-family: var(--font-serif);
+    font-size: 1.5rem;
+  }
+  .crm-empty p {
+    margin: 0;
+    color: #666;
+  }
+</style>
+{% endblock %}

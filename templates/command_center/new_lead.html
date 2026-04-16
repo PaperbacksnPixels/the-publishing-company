@@ -1,0 +1,205 @@
+{% extends "command_center/base_cc.html" %}
+
+{% block cc_content %}
+<a href="{{ url_for('command_center', tab='crm') }}" class="back-link">&larr; Back to CRM</a>
+
+<h2>New Lead</h2>
+<p class="subtitle-text">Capture a new inquiry. We'll create an Author record (or reuse an existing one by email) and a Lead project linked to them. You can fill in as much or as little as you have.</p>
+
+<form method="POST" class="lead-form">
+  <div class="lead-card">
+    <h3 class="lead-section-title">Contact</h3>
+    <div class="form-grid-lead">
+      <label for="author_name">Name <span class="req">*</span></label>
+      <input type="text" id="author_name" name="author_name" class="form-input"
+             value="{{ form_data.author_name or '' }}" required>
+
+      <label for="author_email">Email</label>
+      <input type="email" id="author_email" name="author_email" class="form-input"
+             value="{{ form_data.author_email or '' }}"
+             placeholder="Used to match existing Author records">
+
+      <label for="author_phone">Phone</label>
+      <input type="text" id="author_phone" name="author_phone" class="form-input"
+             value="{{ form_data.author_phone or '' }}">
+    </div>
+  </div>
+
+  <div class="lead-card">
+    <h3 class="lead-section-title">Lead Details</h3>
+    <div class="form-grid-lead">
+      <label for="lead_source">Lead Source</label>
+      <select id="lead_source" name="lead_source" class="form-input">
+        <option value="">— Select —</option>
+        {% for opt in ['Referral', 'Website', 'Event', 'Podcast', 'Cold Inbound', 'Newsletter', 'Other'] %}
+          <option value="{{ opt }}" {% if form_data.lead_source == opt %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="referred_by">Referred By</label>
+      <input type="text" id="referred_by" name="referred_by" class="form-input"
+             value="{{ form_data.referred_by or '' }}"
+             placeholder="Who sent them? (optional)">
+
+      <label for="book_topic">Book Topic</label>
+      <textarea id="book_topic" name="book_topic" class="form-input" rows="3"
+                placeholder="What is the book about? What stage is the manuscript in?">{{ form_data.book_topic or '' }}</textarea>
+    </div>
+  </div>
+
+  <div class="lead-card">
+    <h3 class="lead-section-title">Qualification</h3>
+    <div class="form-grid-lead">
+      <label for="service">Likely Service</label>
+      <select id="service" name="service" class="form-input">
+        <option value="">— Unsure / not set —</option>
+        {% for s in services %}
+          <option value="{{ s }}" {% if form_data.service == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="budget_range">Budget Range</label>
+      <select id="budget_range" name="budget_range" class="form-input">
+        <option value="">— Unknown —</option>
+        {% for opt in ['Under $5K', '$5K–$15K', '$15K–$30K', '$30K+', 'Unknown'] %}
+          <option value="{{ opt }}" {% if form_data.budget_range == opt %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="fit_score">Fit Score</label>
+      <select id="fit_score" name="fit_score" class="form-input">
+        <option value="">— Not yet scored —</option>
+        {% for opt in ['1 — Poor', '2 — Weak', '3 — OK', '4 — Good', '5 — Strong'] %}
+          <option value="{{ opt }}" {% if form_data.fit_score == opt %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="lead-card">
+    <h3 class="lead-section-title">Next Step</h3>
+    <div class="form-grid-lead">
+      <label for="next_followup">Next Follow-Up</label>
+      <input type="date" id="next_followup" name="next_followup" class="form-input"
+             value="{{ form_data.next_followup or '' }}">
+
+      <label for="lead_notes">Initial Notes</label>
+      <textarea id="lead_notes" name="lead_notes" class="form-input" rows="4"
+                placeholder="First impressions, what they said, what they're looking for, concerns, etc.">{{ form_data.lead_notes or '' }}</textarea>
+    </div>
+  </div>
+
+  <div class="lead-actions">
+    <a href="{{ url_for('command_center', tab='crm') }}" class="btn-cancel">Cancel</a>
+    <button type="submit" class="btn-startup">Create Lead</button>
+  </div>
+</form>
+
+<style>
+  .back-link {
+    display: inline-block;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+    text-decoration: none;
+    color: var(--black);
+    opacity: 0.7;
+  }
+  .back-link:hover { opacity: 1; }
+
+  .subtitle-text {
+    color: #666;
+    max-width: 680px;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+  }
+
+  .lead-form { max-width: 760px; }
+
+  .lead-card {
+    border: var(--border);
+    background: var(--white);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow);
+  }
+
+  .lead-section-title {
+    margin: 0 0 1rem 0;
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--black);
+    opacity: 0.7;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    padding-bottom: 0.5rem;
+  }
+
+  .form-grid-lead {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 0.75rem 1rem;
+    align-items: start;
+  }
+  .form-grid-lead label {
+    padding-top: 0.4rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+  .form-grid-lead .req {
+    color: #c0392b;
+    margin-left: 2px;
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 0.45rem 0.6rem;
+    border: 2px solid var(--black);
+    font-size: 0.95rem;
+    font-family: inherit;
+    background: var(--white);
+    box-sizing: border-box;
+  }
+  textarea.form-input { font-family: inherit; line-height: 1.4; resize: vertical; }
+  .form-input:focus { outline: 2px solid var(--yellow); outline-offset: 0; }
+
+  .lead-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+  .btn-cancel {
+    padding: 10px 22px;
+    border: var(--border);
+    background: var(--white);
+    color: var(--black);
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+  .btn-cancel:hover { background: #f5f5f0; }
+
+  .btn-startup {
+    padding: 10px 28px;
+    border: var(--border);
+    background: var(--yellow);
+    color: var(--black);
+    font-weight: 800;
+    font-size: 0.95rem;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: transform 0.05s, box-shadow 0.05s;
+  }
+  .btn-startup:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 var(--black);
+  }
+
+  @media (max-width: 600px) {
+    .form-grid-lead { grid-template-columns: 1fr; }
+    .form-grid-lead label { padding-top: 0; }
+  }
+</style>
+{% endblock %}

@@ -22,6 +22,7 @@ SERVICES_TABLE = "tblVc0gp3KOj4vuxi"
 PORTAL_USERS_TABLE = "tbl6ny7bV34Lmjaw4"
 PARTNERS_TABLE = "tblC5DXtCNBdj6oKs"
 PROJECT_FILES_TABLE = "tblru3XyFKxbEjwxw"
+INTERACTIONS_TABLE = "tblVu2pZdlD56Wzhg"  # CRM touchpoints (added April 14, 2026)
 
 # ============================================================
 # PORTAL USERS — Field IDs (new in Phase 1 rebuild)
@@ -57,12 +58,23 @@ PROJ_CONTRACT_STATUS = "fld1fEWmMnQ9hd6Qy" # Contract Status (Not Sent / Sent / 
 PROJ_CONTRACT_SENT_DATE = "fldNeo8oMJV2fM0d4"    # Contract Sent Date (date)
 PROJ_CONTRACT_SIGNED_DATE = "fldZf6bL6rhcDL9qv"  # Contract Signed Date (date)
 
+# CRM / Lead tracking fields (added April 14, 2026)
+PROJ_LEAD_SOURCE = "fld3WFj0e5mA2UA4p"     # Lead Source (singleSelect)
+PROJ_REFERRED_BY = "fldPM4rlSjEoBodTS"     # Referred By (singleLineText)
+PROJ_BOOK_TOPIC = "fldj9BjPqq8WJsqVZ"      # Book Topic (multilineText)
+PROJ_BUDGET_RANGE = "flda3DaTz7WcdEzpP"    # Budget Range (singleSelect)
+PROJ_FIT_SCORE = "fldLCO9GWxfNalA9G"       # Fit Score (singleSelect: 1-5)
+PROJ_NEXT_FOLLOWUP = "fldKH983LhIxKyfEN"   # Next Follow-Up (date)
+PROJ_LEAD_NOTES = "fldMWVCaEfJVfAHSV"      # Lead Notes (multilineText)
+PROJ_INTERACTIONS = "fld4MTfKb9K2CY8qa"    # Interactions (link to Interactions table, reverse side)
+
 # ============================================================
 # AUTHORS — Field IDs
 # ============================================================
 
 AUTHOR_NAME = "fldQ8DO7efqeIqeob"          # Author Name (singleLineText, primary field)
 AUTHOR_EMAIL = "fld0IWa2rFm4KfifS"         # Email (singleLineText)
+AUTHOR_PHONE = "fldsIvwmSUjICsgpB"         # Phone (singleLineText)
 AUTHOR_PROJECTS = "fldMPzZN7dXsRLUXq"      # Projects (link to Projects table)
 AUTHOR_INVOICES = "fldJgSAK79f9EWFYr"      # Invoices (link to Invoices table)
 
@@ -185,6 +197,18 @@ DISB_NOTES = "fldffERNmN5WZVuJy"              # Notes (multilineText)
 
 # Link field on Projects table pointing to Disbursements
 PROJ_DISBURSEMENTS = "fldcTAMpW6UHzTvBq"
+
+# ============================================================
+# INTERACTIONS — CRM touchpoints (calls, emails, meetings, notes)
+# ============================================================
+
+INT_NAME = "fldOk6k5B2SADb595"            # Name (singleLineText, primary — auto-built like "2026-04-14 Call — Smith")
+INT_PROJECT = "fldVbdkPYevS5rOVC"         # Project (link to Projects)
+INT_DATE = "fldlQGIo8ZPi6eYNb"            # Date (date)
+INT_TYPE = "fld5ALKnrM5jowSRZ"            # Type (singleSelect: Call, Email, Meeting, Text, Note)
+INT_DIRECTION = "fldytJA9TpQJycFXD"       # Direction (singleSelect: Inbound, Outbound, N/A)
+INT_SUMMARY = "fldmfjDX8MyRiaqgY"         # Summary (multilineText)
+INT_LOGGED_BY = "fldk3HjzMM9QbvbLW"       # Logged By (singleLineText)
 
 # ============================================================
 # TYPEFLOW — Document generation & e-signatures

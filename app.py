@@ -85,6 +85,13 @@ from services.airtable_queries import (
     create_balance_invoice,
     create_invoice,
 )
+from services.crm_queries import (
+    get_crm_leads,
+    create_lead,
+    log_interaction,
+    get_interactions_for_project,
+    get_overdue_followups,
+)
 
 
 def create_app():
@@ -620,6 +627,9 @@ def register_routes(app):
             or t["is_due_soon"]
         ]
 
+        # Overdue CRM follow-ups also surface in the priority banner
+        overdue_followups = get_overdue_followups()
+
         if tab == "tasks":
             return render_template(
                 "command_center/tasks.html",
@@ -627,6 +637,7 @@ def register_routes(app):
                 tasks=all_tasks,
                 first_name=first_name,
                 priority_tasks=priority_tasks,
+                overdue_followups=overdue_followups,
             )
         elif tab == "projects":
             projects = get_all_projects()
@@ -636,6 +647,24 @@ def register_routes(app):
                 projects=projects,
                 first_name=first_name,
                 priority_tasks=priority_tasks,
+                overdue_followups=overdue_followups,
+            )
+        elif tab == "crm":
+            leads = get_crm_leads()
+            # Group for the template
+            overdue = [l for l in leads if l["is_overdue"]]
+            this_week = [l for l in leads if l["is_due_this_week"]]
+            later = [l for l in leads if not l["is_overdue"] and not l["is_due_this_week"]]
+            return render_template(
+                "command_center/crm.html",
+                tab=tab,
+                leads=leads,
+                overdue_leads=overdue,
+                this_week_leads=this_week,
+                later_leads=later,
+                first_name=first_name,
+                priority_tasks=priority_tasks,
+                overdue_followups=overdue_followups,
             )
         elif tab == "financials":
             invoices = get_all_invoices()
@@ -654,6 +683,7 @@ def register_routes(app):
                 total_overdue=total_overdue,
                 first_name=first_name,
                 priority_tasks=priority_tasks,
+                overdue_followups=overdue_followups,
             )
         elif tab == "partners":
             partners = get_all_partners()
@@ -663,6 +693,7 @@ def register_routes(app):
                 partners=partners,
                 first_name=first_name,
                 priority_tasks=priority_tasks,
+                overdue_followups=overdue_followups,
             )
 
         # Unknown tab — fall back to tasks
@@ -743,6 +774,9 @@ def register_routes(app):
                 PROJ_START_DATE, PROJ_DEPOSIT_PAID,
                 PROJ_CONTRACT_STATUS, PROJ_CONTRACT_SENT_DATE,
                 PROJ_CONTRACT_SIGNED_DATE,
+                PROJ_LEAD_SOURCE, PROJ_REFERRED_BY, PROJ_BOOK_TOPIC,
+                PROJ_BUDGET_RANGE, PROJ_FIT_SCORE, PROJ_NEXT_FOLLOWUP,
+                PROJ_LEAD_NOTES,
             )
 
             updates = {}
@@ -776,6 +810,35 @@ def register_routes(app):
             if contract_signed is not None:
                 updates[PROJ_CONTRACT_SIGNED_DATE] = contract_signed if contract_signed else None
 
+            # CRM / lead fields — only update if the lead section was in the submitted form
+            lead_source = request.form.get("lead_source")
+            if lead_source is not None:
+                updates[PROJ_LEAD_SOURCE] = lead_source if lead_source else None
+
+            referred_by = request.form.get("referred_by")
+            if referred_by is not None:
+                updates[PROJ_REFERRED_BY] = referred_by
+
+            book_topic = request.form.get("book_topic")
+            if book_topic is not None:
+                updates[PROJ_BOOK_TOPIC] = book_topic
+
+            budget_range = request.form.get("budget_range")
+            if budget_range is not None:
+                updates[PROJ_BUDGET_RANGE] = budget_range if budget_range else None
+
+            fit_score = request.form.get("fit_score")
+            if fit_score is not None:
+                updates[PROJ_FIT_SCORE] = fit_score if fit_score else None
+
+            next_followup = request.form.get("next_followup")
+            if next_followup is not None:
+                updates[PROJ_NEXT_FOLLOWUP] = next_followup if next_followup else None
+
+            lead_notes = request.form.get("lead_notes")
+            if lead_notes is not None:
+                updates[PROJ_LEAD_NOTES] = lead_notes
+
             if updates:
                 result = update_record(PROJECTS_TABLE, project_id, updates)
                 if result:
@@ -790,9 +853,15 @@ def register_routes(app):
             flash("Project not found.", "error")
             return redirect(url_for("command_center", tab="projects"))
 
+        # Load interactions for the CRM log (cheap — filtered by project in Python)
+        interactions = get_interactions_for_project(project_id)
+
+        from datetime import date
         return render_template(
             "command_center/project_detail.html",
             project=project,
+            interactions=interactions,
+            today=date.today().isoformat(),
         )
 
     @app.route("/command-center/partner/<partner_id>")
@@ -859,6 +928,84 @@ def register_routes(app):
             session.pop("admin_preview", None)
             flash("Back to Command Center.", "info")
         return redirect(url_for("command_center"))
+
+    # ============================================================
+    # CRM — New lead intake + Interaction logging
+    # ============================================================
+
+    @app.route("/command-center/new-lead", methods=["GET", "POST"])
+    @login_required
+    @role_required("Admin")
+    def new_lead():
+        """
+        Quick lead intake.
+        GET: show the form.
+        POST: create Author (or reuse by email) + Project(Lead), redirect to the
+        new project detail page so the admin can keep working on the lead.
+        """
+        if request.method == "POST":
+            result = create_lead(request.form.to_dict())
+            if result.get("success"):
+                flash("Lead created.", "success")
+                return redirect(url_for(
+                    "command_center_project_detail",
+                    project_id=result["project_id"],
+                ))
+            flash(f"Could not create lead: {result.get('error', 'Unknown error')}", "error")
+            return render_template(
+                "command_center/new_lead.html",
+                form_data=request.form.to_dict(),
+                services=get_available_services(),
+            )
+
+        return render_template(
+            "command_center/new_lead.html",
+            form_data={},
+            services=get_available_services(),
+        )
+
+    @app.route("/api/interaction", methods=["POST"])
+    @login_required
+    @role_required("Admin")
+    def api_log_interaction():
+        """
+        Log an interaction (call, email, meeting, text, note) against a project.
+        Returns JSON for AJAX callers.
+        """
+        project_id = request.form.get("project_id", "").strip()
+        if not project_id:
+            return jsonify({"success": False, "error": "project_id required"}), 400
+
+        interaction_type = request.form.get("type", "Note").strip() or "Note"
+        summary = request.form.get("summary", "").strip()
+        direction = request.form.get("direction", "N/A").strip() or "N/A"
+        int_date = request.form.get("date", "").strip() or None
+
+        # Who logged it — default to the logged-in user's display name or email
+        logged_by = session.get("display_name") or session.get("email", "")
+
+        rec = log_interaction(
+            project_id=project_id,
+            interaction_type=interaction_type,
+            summary=summary,
+            direction=direction,
+            int_date=int_date,
+            logged_by=logged_by,
+        )
+        if not rec:
+            return jsonify({"success": False, "error": "Could not log interaction"}), 500
+
+        return jsonify({
+            "success": True,
+            "interaction": {
+                "id": rec.get("id"),
+                "date": rec.get("fields", {}).get("fldlQGIo8ZPi6eYNb", ""),
+                "type": interaction_type,
+                "direction": direction,
+                "summary": summary,
+                "logged_by": logged_by,
+            },
+        })
 
     # ============================================================
     # PROJECT STARTUP

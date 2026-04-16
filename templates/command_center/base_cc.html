@@ -9,12 +9,22 @@
     <a href="{{ url_for('project_startup') }}" class="btn-new-project">+ New Project</a>
   </div>
 
-  {# Today's priorities — shows overdue + due today + needs your action #}
-  {% if priority_tasks %}
+  {# Today's priorities — shows overdue + due today + needs your action, and overdue follow-ups #}
+  {% if priority_tasks or overdue_followups %}
   <div class="cc-priorities">
     <h3 class="cc-priorities-label">Today's Priorities</h3>
     <div class="cc-priority-list">
-      {% for task in priority_tasks[:5] %}
+      {# Overdue CRM follow-ups first (usually few, very urgent) #}
+      {% for lead in (overdue_followups or [])[:3] %}
+      <a href="{{ url_for('command_center_project_detail', project_id=lead.id) }}" class="cc-priority-item overdue">
+        <span class="cc-priority-tag">FOLLOW UP</span>
+        <strong>{{ lead.author_name or lead.name }}</strong>
+        <span class="cc-priority-project">Follow-up due {{ lead.next_followup }}</span>
+      </a>
+      {% endfor %}
+
+      {# Then overdue / due-today / action-needed tasks #}
+      {% for task in (priority_tasks or [])[:5] %}
       <a href="{{ url_for('command_center_task_detail', task_id=task.id) }}" class="cc-priority-item {% if task.is_overdue %}overdue{% endif %}">
         <span class="cc-priority-tag">
           {% if task.is_overdue %}OVERDUE{% elif task.next_step and task.next_step.action %}ACTION{% else %}DUE TODAY{% endif %}
@@ -23,8 +33,18 @@
         <span class="cc-priority-project">{{ task.project_name }}</span>
       </a>
       {% endfor %}
-      {% if priority_tasks|length > 5 %}
-      <p class="cc-priority-more">+ {{ priority_tasks|length - 5 }} more — <a href="{{ url_for('command_center', tab='tasks') }}">view all tasks</a></p>
+
+      {% if (priority_tasks or [])|length > 5 or (overdue_followups or [])|length > 3 %}
+      <p class="cc-priority-more">
+        {% if (priority_tasks or [])|length > 5 %}
+          + {{ priority_tasks|length - 5 }} more tasks —
+          <a href="{{ url_for('command_center', tab='tasks') }}">view all</a>
+        {% endif %}
+        {% if (overdue_followups or [])|length > 3 %}
+          &nbsp;&middot;&nbsp; {{ overdue_followups|length - 3 }} more follow-ups —
+          <a href="{{ url_for('command_center', tab='crm') }}">open CRM</a>
+        {% endif %}
+      </p>
       {% endif %}
     </div>
   </div>
@@ -35,6 +55,10 @@
     <a href="{{ url_for('command_center', tab='tasks') }}"
        class="cc-tab {% if tab == 'tasks' %}active{% endif %}">
       Tasks
+    </a>
+    <a href="{{ url_for('command_center', tab='crm') }}"
+       class="cc-tab {% if tab == 'crm' %}active{% endif %}">
+      CRM
     </a>
     <a href="{{ url_for('command_center', tab='projects') }}"
        class="cc-tab {% if tab == 'projects' %}active{% endif %}">

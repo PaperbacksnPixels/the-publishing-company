@@ -92,6 +92,57 @@
         {% endif %}
       </div>
     </div>
+
+    {# ---- Lead / CRM Card — only for pre-active stages ---- #}
+    {% if project.status in ['Lead', 'Discovery', 'Proposal', 'Contract Sent', 'Signed'] %}
+    <div class="detail-card">
+      <h3>Lead &amp; CRM</h3>
+      <div class="form-grid">
+        <label for="lead_source">Lead Source</label>
+        <select name="lead_source" id="lead_source" class="form-input">
+          <option value="">—</option>
+          {% for opt in ['Referral', 'Website', 'Event', 'Podcast', 'Cold Inbound', 'Newsletter', 'Other'] %}
+            <option value="{{ opt }}" {% if project.lead_source == opt %}selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="referred_by">Referred By</label>
+        <input type="text" name="referred_by" id="referred_by" class="form-input"
+               value="{{ project.referred_by or '' }}">
+
+        <label for="budget_range">Budget</label>
+        <select name="budget_range" id="budget_range" class="form-input">
+          <option value="">—</option>
+          {% for opt in ['Under $5K', '$5K–$15K', '$15K–$30K', '$30K+', 'Unknown'] %}
+            <option value="{{ opt }}" {% if project.budget_range == opt %}selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="fit_score">Fit</label>
+        <select name="fit_score" id="fit_score" class="form-input">
+          <option value="">—</option>
+          {% for opt in ['1 — Poor', '2 — Weak', '3 — OK', '4 — Good', '5 — Strong'] %}
+            <option value="{{ opt }}" {% if project.fit_score == opt %}selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+
+        <label for="next_followup">Next Follow-Up</label>
+        <input type="date" name="next_followup" id="next_followup" class="form-input"
+               value="{{ project.next_followup or '' }}">
+
+        <label for="book_topic">Book Topic</label>
+        <textarea name="book_topic" id="book_topic" class="form-input" rows="3">{{ project.book_topic or '' }}</textarea>
+
+        <label for="lead_notes">Lead Notes</label>
+        <textarea name="lead_notes" id="lead_notes" class="form-input" rows="3">{{ project.lead_notes or '' }}</textarea>
+
+        {% if project.author_phone %}
+          <label>Author Phone</label>
+          <div class="form-static">{{ project.author_phone }}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   {# Save button for the form #}
@@ -99,6 +150,9 @@
     <button type="submit" class="btn-save">Save Changes</button>
   </div>
 </form>
+
+{# ---- Interaction log — outside the main form (posts to /api/interaction) ---- #}
+{% include "command_center/_interactions.html" %}
 
 {# ============================================================
    TASKS — with Add and Delete

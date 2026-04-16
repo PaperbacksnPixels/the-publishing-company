@@ -1102,6 +1102,22 @@ def get_project_detail_admin(project_id):
                 "notes": df.get(DISB_NOTES, ""),
             })
 
+    # Author phone — needed by the CRM/lead section
+    author_phone = ""
+    if author_id:
+        from config import AUTHOR_PHONE
+        # Refetch isn't necessary — we already have `author` in scope above if found
+        try:
+            author_phone = author.get("fields", {}).get(AUTHOR_PHONE, "") if author else ""
+        except NameError:
+            author_phone = ""
+
+    # CRM / lead fields — empty string / None for non-lead projects (harmless)
+    from config import (
+        PROJ_LEAD_SOURCE, PROJ_REFERRED_BY, PROJ_BOOK_TOPIC,
+        PROJ_BUDGET_RANGE, PROJ_FIT_SCORE, PROJ_NEXT_FOLLOWUP, PROJ_LEAD_NOTES,
+    )
+
     return {
         "id": project.get("id"),
         "name": fields.get(PROJ_NAME, "(unnamed)"),
@@ -1111,11 +1127,20 @@ def get_project_detail_admin(project_id):
         "author_id": author_id,
         "author_name": author_name,
         "author_email": author_email,
+        "author_phone": author_phone,
         "contract_status": fields.get(PROJ_CONTRACT_STATUS, ""),
         "contract_url": fields.get(PROJ_CONTRACT_URL, ""),
         "contract_sent_date": fields.get(PROJ_CONTRACT_SENT_DATE, ""),
         "contract_signed_date": fields.get(PROJ_CONTRACT_SIGNED_DATE, ""),
         "deposit_paid": fields.get("fldXKN3e7lcy1Q0bd", False),
+        # CRM / lead fields
+        "lead_source": fields.get(PROJ_LEAD_SOURCE, ""),
+        "referred_by": fields.get(PROJ_REFERRED_BY, ""),
+        "book_topic": fields.get(PROJ_BOOK_TOPIC, ""),
+        "budget_range": fields.get(PROJ_BUDGET_RANGE, ""),
+        "fit_score": fields.get(PROJ_FIT_SCORE, ""),
+        "next_followup": fields.get(PROJ_NEXT_FOLLOWUP, ""),
+        "lead_notes": fields.get(PROJ_LEAD_NOTES, ""),
         "tasks": tasks,
         "invoices": invoices,
         "disbursements": disbursements,
@@ -1618,10 +1643,12 @@ def inject_milestones(project_id, service_name, start_date=None):
         return 0
 
     # Chapters — Foundation = Full Concierge minus Launch module (seq 2190-2260)
+    # and AI Edition Bundle Inject Trigger (seq 2270). Chapters clients do
+    # not get the AI edition upsell. Final Project Debrief (2280, 2290) stays.
     if service_name == "Chapters — Foundation":
         templates = [
             t for t in templates
-            if not (2190 <= (t.get("fields", {}).get(ML_SEQUENCE, 0) or 0) <= 2260)
+            if not (2190 <= (t.get("fields", {}).get(ML_SEQUENCE, 0) or 0) <= 2270)
         ]
 
     # Sort by sequence so tasks are created in order
