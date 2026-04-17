@@ -1634,8 +1634,11 @@ def inject_milestones(project_id, service_name, start_date=None):
         return 0
 
     # Step 2: Fetch matching milestone templates
-    # Bundle is a multiple select field — use FIND to match
-    formula = f"AND(FIND('{bundle}', ARRAYJOIN({{Bundle}})), {{Template Active}}=TRUE())"
+    # Bundle is a multiple select field — use FIND to match.
+    # Escape any single quotes in the bundle name (e.g. "Children's Book Concierge")
+    # by doubling them — that's how Airtable formula strings handle embedded quotes.
+    escaped_bundle = bundle.replace("'", "\\'")
+    formula = f"AND(FIND('{escaped_bundle}', ARRAYJOIN({{Bundle}})), {{Template Active}}=TRUE())"
     templates = get_records(MILESTONE_LIBRARY_TABLE, formula=formula)
 
     if not templates:
@@ -1703,8 +1706,12 @@ def inject_milestones(project_id, service_name, start_date=None):
             "fldgOATDg4qInH9ra": [tmpl.get("id")],    # TASK_MILESTONE_SOURCE
             TASK_MODULE: tf.get(ML_MODULE, ""),
             TASK_SEQUENCE: tf.get(ML_SEQUENCE, 0),
-            # Bundle comes as a list from multiple select — extract first value
-            "fldoUn5h7WAJF0q7m": (tf.get(ML_BUNDLE, []) or [""])[0] if isinstance(tf.get(ML_BUNDLE), list) else tf.get(ML_BUNDLE, ""),  # TASK_BUNDLE
+            # Note: TASK_BUNDLE is intentionally NOT set here. The Tasks table's
+            # Bundle field is a singleSelect with old/stale option names (e.g.
+            # "Navigator AI" instead of "Navigator") that no longer match the
+            # Milestone Library. Rather than writing values Airtable would reject,
+            # we rely on the Milestone Source link — bundle info can be looked
+            # up from the linked milestone template when needed.
             TASK_STATUS: "Not Started",
             TASK_AUTHOR_VISIBLE: tf.get(ML_AUTHOR_VISIBLE, False),
             TASK_STAGE_DESC: tf.get(ML_STAGE_DESC, ""),
