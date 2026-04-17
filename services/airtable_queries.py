@@ -957,20 +957,27 @@ def get_all_projects():
     """
     Fetch ALL projects across all authors. No ownership filter.
     Returns a list sorted by status (Active first, then Lead, then Complete).
+
+    PERFORMANCE: uses bulk pre-fetch — one call for all projects, one for
+    all authors, then in-memory lookups. Was previously N+1 (one author
+    fetch per project) which got slow once there were ~15+ projects.
     """
     records = get_records(PROJECTS_TABLE)
+
+    # Pre-fetch all authors once, build id -> fields lookup
+    all_authors = get_records(AUTHORS_TABLE)
+    authors_by_id = {a.get("id"): a.get("fields", {}) for a in all_authors}
 
     projects = []
     for r in records:
         fields = r.get("fields", {})
 
-        # Get author name
+        # Get author name from pre-fetched dict (no API call)
         author_links = fields.get(PROJ_AUTHOR, [])
         author_name = ""
         if author_links:
-            author = get_record(AUTHORS_TABLE, author_links[0])
-            if author:
-                author_name = author.get("fields", {}).get(AUTHOR_NAME, "")
+            author_fields = authors_by_id.get(author_links[0], {})
+            author_name = author_fields.get(AUTHOR_NAME, "")
 
         # Count tasks
         task_ids = fields.get(PROJ_TASKS, [])
@@ -1005,40 +1012,53 @@ def get_project_detail_admin(project_id):
     """
     Fetch full details for a single project (admin view, no ownership filter).
     Returns project info + tasks + invoices + author info + contract status.
+
+    PERFORMANCE: bulk pre-fetch pattern. Was previously making one API call
+    per task (~30), per invoice, per disbursement, plus one per partner lookup.
+    A 30-task Full Concierge project was 60+ sequential calls = slow page loads.
+
+    Now: 1 project + 1 author + 4 table fetches = ~6 calls total regardless
+    of how many tasks/invoices/disbursements the project has.
     """
+    from config import AUTHOR_EMAIL, AUTHOR_PHONE
+
     project = get_record(PROJECTS_TABLE, project_id)
     if not project:
         return None
 
     fields = project.get("fields", {})
 
-    # Get author info
+    # Get author info — single direct fetch
     author_links = fields.get(PROJ_AUTHOR, [])
     author_id = author_links[0] if author_links else ""
     author_name = ""
     author_email = ""
+    author_phone = ""
     if author_id:
         author = get_record(AUTHORS_TABLE, author_id)
         if author:
-            from config import AUTHOR_EMAIL
-            author_name = author.get("fields", {}).get(AUTHOR_NAME, "")
-            author_email = author.get("fields", {}).get(AUTHOR_EMAIL, "")
+            af = author.get("fields", {})
+            author_name = af.get(AUTHOR_NAME, "")
+            author_email = af.get(AUTHOR_EMAIL, "")
+            author_phone = af.get(AUTHOR_PHONE, "")
 
-    # Get tasks for this project
-    task_ids = fields.get(PROJ_TASKS, [])
+    # Pre-fetch all partners once (small table) for name lookups
+    all_partners = get_records(PARTNERS_TABLE)
+    partners_by_id = {p.get("id"): p.get("fields", {}) for p in all_partners}
+
+    # Pre-fetch ALL tasks, filter to the ones for this project
+    task_ids = set(fields.get(PROJ_TASKS, []))
     tasks = []
-    for tid in task_ids:
-        t = get_record(TASKS_TABLE, tid)
-        if t:
+    if task_ids:
+        all_tasks = get_records(TASKS_TABLE)
+        for t in all_tasks:
+            if t.get("id") not in task_ids:
+                continue
             tf = t.get("fields", {})
-            # Get assigned partner name
             partner_links = tf.get(TASK_ASSIGNED_PARTNER, [])
             partner_name = ""
             if partner_links:
-                partner = get_record(PARTNERS_TABLE, partner_links[0])
-                if partner:
-                    partner_name = partner.get("fields", {}).get(PARTNER_NAME, "")
-
+                partner_name = partners_by_id.get(partner_links[0], {}).get(PARTNER_NAME, "")
             tasks.append({
                 "id": t.get("id"),
                 "name": tf.get(TASK_NAME, ""),
@@ -1048,16 +1068,16 @@ def get_project_detail_admin(project_id):
                 "module": tf.get(TASK_MODULE, ""),
                 "partner_name": partner_name,
             })
+        tasks.sort(key=lambda t: t.get("sequence", 0))
 
-    # Sort tasks by sequence
-    tasks.sort(key=lambda t: t.get("sequence", 0))
-
-    # Get invoices for this project
-    invoice_ids = fields.get(PROJ_INVOICES, [])
+    # Pre-fetch ALL invoices, filter to this project's
+    invoice_ids = set(fields.get(PROJ_INVOICES, []))
     invoices = []
-    for iid in invoice_ids:
-        inv = get_record(INVOICES_TABLE, iid)
-        if inv:
+    if invoice_ids:
+        all_invoices = get_records(INVOICES_TABLE)
+        for inv in all_invoices:
+            if inv.get("id") not in invoice_ids:
+                continue
             ivf = inv.get("fields", {})
             if ivf.get(INV_VOIDED):
                 continue
@@ -1073,21 +1093,19 @@ def get_project_detail_admin(project_id):
                 "stripe_url": ivf.get(INV_STRIPE_URL, ""),
             })
 
-    # Get disbursements (money going OUT — partner payments, referral fees)
-    disb_ids = fields.get(PROJ_DISBURSEMENTS, [])
+    # Pre-fetch ALL disbursements, filter to this project's
+    disb_ids = set(fields.get(PROJ_DISBURSEMENTS, []))
     disbursements = []
-    for did in disb_ids:
-        d = get_record(DISBURSEMENTS_TABLE, did)
-        if d:
+    if disb_ids:
+        all_disbursements = get_records(DISBURSEMENTS_TABLE)
+        for d in all_disbursements:
+            if d.get("id") not in disb_ids:
+                continue
             df = d.get("fields", {})
-            # Get partner name for this disbursement
             partner_links = df.get(DISB_PARTNER, [])
             disb_partner_name = ""
             if partner_links:
-                partner = get_record(PARTNERS_TABLE, partner_links[0])
-                if partner:
-                    disb_partner_name = partner.get("fields", {}).get(PARTNER_NAME, "")
-
+                disb_partner_name = partners_by_id.get(partner_links[0], {}).get(PARTNER_NAME, "")
             disbursements.append({
                 "id": d.get("id"),
                 "name": df.get(DISB_NAME, ""),
@@ -1101,16 +1119,6 @@ def get_project_detail_admin(project_id):
                 "payment_method": df.get(DISB_PAYMENT_METHOD, ""),
                 "notes": df.get(DISB_NOTES, ""),
             })
-
-    # Author phone — needed by the CRM/lead section
-    author_phone = ""
-    if author_id:
-        from config import AUTHOR_PHONE
-        # Refetch isn't necessary — we already have `author` in scope above if found
-        try:
-            author_phone = author.get("fields", {}).get(AUTHOR_PHONE, "") if author else ""
-        except NameError:
-            author_phone = ""
 
     # CRM / lead fields — empty string / None for non-lead projects (harmless)
     from config import (
