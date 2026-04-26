@@ -728,8 +728,10 @@ def register_routes(app):
 
             # Assigned Partner — linked record field (needs to be a list)
             new_partner = request.form.get("assigned_partner")
+            cascade_partner_id = None
             if new_partner:
                 updates[TASK_ASSIGNED_PARTNER] = [new_partner]
+                cascade_partner_id = new_partner
             elif new_partner == "":
                 # User chose "Unassigned" — clear the link
                 updates[TASK_ASSIGNED_PARTNER] = []
@@ -741,6 +743,29 @@ def register_routes(app):
                     flash("Task updated.", "success")
                 else:
                     flash("Update failed.", "error")
+
+            # Cascade the partner to sibling tasks (same project + same stage,
+            # currently unassigned). Skips auto-PM stages. Only fires when
+            # the user just assigned a partner (not when clearing).
+            if cascade_partner_id:
+                from airtable_helpers import get_record as _get
+                from config import (
+                    TASKS_TABLE as _TT, TASK_PROJECT as _TP,
+                    TASK_WORKFLOW_STAGE as _TWS,
+                )
+                from services.airtable_queries import cascade_partner_to_stage
+                tr = _get(_TT, task_id)
+                tf = tr.get("fields", {}) if tr else {}
+                proj_links = tf.get(_TP, [])
+                project_id = proj_links[0] if proj_links else None
+                stage = tf.get(_TWS)
+                if project_id and stage:
+                    n = cascade_partner_to_stage(
+                        project_id, stage, cascade_partner_id, source_task_id=task_id,
+                    )
+                    if n > 0:
+                        plural = "s" if n != 1 else ""
+                        flash(f"Also assigned to {n} other {stage} task{plural}.", "success")
 
             return redirect(url_for("command_center_task_detail", task_id=task_id))
 

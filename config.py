@@ -114,6 +114,7 @@ ML_DESCRIPTION = "fldbJNiX0zC876U3m"        # Task Description (multilineText)
 ML_TEMPLATE_ACTIVE = "fldVhaPrkLRcrw2UD"    # Template Active (checkbox)
 ML_AUTHOR_VISIBLE = "fldUxyvyXJ284QtFx"     # Author Visible (checkbox)
 ML_STAGE_DESC = "fldPjhNiaA0W7TjoO"        # Stage Description (multilineText)
+ML_WORKFLOW_STAGE = "fldBGeDR8Z2DCY3tt"     # Workflow Stage (singleSelect) — partner cascade key
 
 # ============================================================
 # TASKS — Field IDs
@@ -137,6 +138,16 @@ TASK_INSTRUCTIONS = "fldB74YCkAJ055mis"     # Instructions (multilineText)
 TASK_AUTHOR_VISIBLE = "fldujWJJl0rB9jnXq"  # Author Visible (checkbox)
 TASK_STAGE_DESC = "fldQBQZxYI7kDr6Qd"      # Stage Description (multilineText)
 TASK_ASSIGNED_PARTNER = "fldrcTUeG3ZYIrvsJ" # Assigned Partner (link to Partners table)
+TASK_WORKFLOW_STAGE = "fldS0YCvUy0AEVRLb"   # Workflow Stage (singleSelect) — partner cascade key
+
+# Auto-PM stages: tasks in these stages skip the partner-cascade logic because
+# the assignee is always the project's PM (Julie today). Keep in sync with the
+# stages where Default Owner = "Primary PM" on Milestone Library.
+AUTO_PM_STAGES = {
+    "Discovery", "Onboarding", "Story Development", "CX",
+    "Ebook Distribution", "Project Closeout", "Navigator Handoff",
+    "DTC Funnel Handoff", "ISBN",
+}
 
 # ============================================================
 # PARTNERS — Field IDs

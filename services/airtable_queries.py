@@ -1633,7 +1633,8 @@ def inject_milestones(project_id, service_name, start_date=None):
         ML_REQUIRES_AUTHOR, ML_REQUIRES_PM,
         ML_SENSITIVE, ML_TRIGGERS_FEE, ML_TRIGGERS_DOC,
         ML_DESCRIPTION, ML_TEMPLATE_ACTIVE,
-        ML_AUTHOR_VISIBLE, ML_STAGE_DESC,
+        ML_AUTHOR_VISIBLE, ML_STAGE_DESC, ML_WORKFLOW_STAGE,
+        TASK_WORKFLOW_STAGE,
     )
     from airtable_helpers import create_record
 
@@ -1717,6 +1718,7 @@ def inject_milestones(project_id, service_name, start_date=None):
             "fldgOATDg4qInH9ra": [tmpl.get("id")],    # TASK_MILESTONE_SOURCE
             TASK_MODULE: tf.get(ML_MODULE, ""),
             TASK_SEQUENCE: tf.get(ML_SEQUENCE, 0),
+            TASK_WORKFLOW_STAGE: tf.get(ML_WORKFLOW_STAGE, ""),
             # Note: TASK_BUNDLE is intentionally NOT set here. The Tasks table's
             # Bundle field is a singleSelect with old/stale option names (e.g.
             # "Navigator AI" instead of "Navigator") that no longer match the
@@ -1742,6 +1744,47 @@ def inject_milestones(project_id, service_name, start_date=None):
             created += 1
 
     return created
+
+
+def cascade_partner_to_stage(project_id, workflow_stage, partner_id, source_task_id=None):
+    """
+    Cascade a partner assignment to sibling tasks (same project + same
+    workflow stage) that don't yet have a partner. Skips AUTO_PM_STAGES.
+
+    Returns the count of sibling tasks that were updated.
+    """
+    from config import AUTO_PM_STAGES, TASK_WORKFLOW_STAGE, TASK_ASSIGNED_PARTNER
+
+    if not workflow_stage or not partner_id:
+        return 0
+    if workflow_stage in AUTO_PM_STAGES:
+        return 0
+
+    # Candidates: same stage, no partner. Stage names have no apostrophes
+    # so they're safe to interpolate into a formula string.
+    formula = (
+        f"AND({{Workflow Stage}}='{workflow_stage}', NOT({{Assigned Partner}}))"
+    )
+    candidates = get_records(TASKS_TABLE, formula=formula)
+
+    # Linked-record formula filtering returns primary-field text rather than
+    # record IDs, so we filter by project membership in Python.
+    cascaded = 0
+    for c in candidates:
+        if c["id"] == source_task_id:
+            continue
+        cf = c.get("fields", {})
+        proj_links = cf.get("fldj1YwlwJbfK956K", [])  # TASK_PROJECT
+        if project_id not in proj_links:
+            continue
+        from airtable_helpers import update_record
+        update_record(
+            TASKS_TABLE,
+            c["id"],
+            {TASK_ASSIGNED_PARTNER: [partner_id]},
+        )
+        cascaded += 1
+    return cascaded
 
 
 def create_invoice(project_id, author_id, invoice_type, amount, project_name=""):
