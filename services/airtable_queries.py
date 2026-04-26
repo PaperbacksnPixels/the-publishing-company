@@ -1689,24 +1689,25 @@ def inject_milestones(project_id, service_name, start_date=None):
         module = tf.get(ML_MODULE, "")
         sequence = tf.get(ML_SEQUENCE, 0) or 0
 
+        # Zero-duration markers (kickoff triggers, parallel-track markers,
+        # automation hooks) inherit the running cumulative date so every task
+        # has a date and sorts naturally. They don't advance the timeline.
         if module in PARALLEL_MODULES:
             # First parallel task: branch from the fork point
             if parallel_date is None:
                 fork_seq = PARALLEL_MODULES[module]
                 parallel_date = date_at_sequence.get(fork_seq, current_date)
-            due_date = None
             if duration:
-                due_date = (parallel_date + timedelta(days=int(duration))).isoformat()
                 parallel_date = parallel_date + timedelta(days=int(duration))
+            due_date = parallel_date.isoformat()
         else:
             # When leaving a parallel branch, resume from whichever is later
             if parallel_date is not None:
                 current_date = max(current_date, parallel_date)
                 parallel_date = None
-            due_date = None
             if duration:
-                due_date = (current_date + timedelta(days=int(duration))).isoformat()
                 current_date = current_date + timedelta(days=int(duration))
+            due_date = current_date.isoformat()
             # Save checkpoint so parallel branches can fork from here
             date_at_sequence[sequence] = current_date
 
