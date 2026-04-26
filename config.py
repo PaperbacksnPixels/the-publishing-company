@@ -248,6 +248,34 @@ TYPEFLOW_MSA_FLOW_ID = "33bbd513db99493ab3d2ec01566fead3"
 # The Bundle field on Milestone Library is a select with specific names.
 # This mapping translates between them.
 
+# ============================================================
+# PARALLEL FORKS — bundle-specific concurrent workflow branches
+# ============================================================
+# Each entry: bundle name -> list of (workflow_stage, fork_after_sequence) pairs.
+# When inject_milestones encounters a milestone whose Workflow Stage matches,
+# it computes that task's date on a separate branch that forks from the date
+# of the given sequence (rather than advancing the main cumulative timeline).
+# When the main timeline reaches the END of a parallel branch (sequence after
+# the branch's last task), it absorbs the branch's end date via max().
+#
+# Cover Design entries make Cover Design happen at the same time as Interior
+# Design instead of after it. Launch entries (Full Concierge only) keep the
+# existing pattern where launch prep runs alongside production after the cover
+# is approved.
+PARALLEL_FORKS = {
+    "Full Concierge": [
+        ("Cover Design", 2054),   # parallel to Interior Design (forks after Copyedit Changes Applied)
+        ("Launch", 2110),          # parallel to production tail (forks after Cover Design Approved)
+    ],
+    "Publish-Ready Concierge": [
+        ("Cover Design", 3020),   # parallel to Interior Formatting (forks after Production Plan Confirmed)
+    ],
+    "Children's Book Concierge": [
+        ("Cover Design", 4172),   # parallel to Interior Layout (forks after CB Illustration Final Invoice Sent)
+    ],
+}
+
+
 SERVICE_TO_BUNDLE = {
     # Publishing packages
     "Full Concierge": "Full Concierge",

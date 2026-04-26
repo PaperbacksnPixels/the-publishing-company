@@ -1632,7 +1632,7 @@ def inject_milestones(project_id, service_name, start_date=None):
     Returns the count of tasks created.
     """
     from config import (
-        SERVICE_TO_BUNDLE,
+        SERVICE_TO_BUNDLE, PARALLEL_FORKS,
         MILESTONE_LIBRARY_TABLE,
         ML_NAME, ML_BUNDLE, ML_MODULE, ML_SEQUENCE,
         ML_DEFAULT_OWNER, ML_DURATION_DAYS,
@@ -1642,7 +1642,7 @@ def inject_milestones(project_id, service_name, start_date=None):
         ML_AUTHOR_VISIBLE, ML_STAGE_DESC, ML_WORKFLOW_STAGE,
         TASK_WORKFLOW_STAGE,
     )
-    from airtable_helpers import create_record
+    from airtable_helpers import create_record, update_record
 
     # Step 1: Map service name to bundle name
     bundle = SERVICE_TO_BUNDLE.get(service_name)
@@ -1663,12 +1663,18 @@ def inject_milestones(project_id, service_name, start_date=None):
         return 0
 
     # Chapters — Foundation = Full Concierge minus Launch module (seq 2190-2260)
-    # and AI Edition Bundle Inject Trigger (seq 2270). Chapters clients do
-    # not get the AI edition upsell. Final Project Debrief (2280, 2290) stays.
+    # AND the AI Edition Bundle Inject Trigger (seq 2270) — Chapters clients
+    # don't get the AI edition upsell. Final Project Debrief (2280, 2290) stays.
     if service_name == "Chapters — Foundation":
         templates = [
             t for t in templates
             if not (2190 <= (t.get("fields", {}).get(ML_SEQUENCE, 0) or 0) <= 2270)
+        ]
+    # Chapters — Signature keeps Launch but also skips the AI Edition trigger.
+    elif service_name == "Chapters — Signature":
+        templates = [
+            t for t in templates
+            if (t.get("fields", {}).get(ML_SEQUENCE, 0) or 0) != 2270
         ]
 
     # Sort by sequence so tasks are created in order
@@ -1677,45 +1683,64 @@ def inject_milestones(project_id, service_name, start_date=None):
     # Step 3: Create a task for each template
     created = 0
 
-    # Sequential due dates: each task starts where the previous one ended
-    # Use the provided start_date, or fall back to today
+    # Sequential due dates: each task starts where the previous one ended.
+    # Use the provided start_date, or fall back to today.
     current_date = start_date if start_date else date.today()
 
-    # Parallel modules: get due dates but don't push the main timeline.
-    # Launch runs alongside production, forking after Cover Design Approved.
-    # Map: module name → sequence number it forks from
-    PARALLEL_MODULES = {
-        "Launch": 2110,  # Fork after Cover Design Approved (seq 2110)
-    }
-    parallel_date = None       # Tracks timeline within the parallel branch
-    date_at_sequence = {}      # Saves current_date after each milestone for fork lookups
+    # Parallel branches: bundle-specific concurrent workflow stages.
+    # See PARALLEL_FORKS in config.py — each entry maps a Workflow Stage to
+    # a fork-after-sequence. Tasks in that stage compute dates on a separate
+    # branch instead of advancing the main timeline. The main timeline absorbs
+    # each branch's end date (via max) when it crosses the branch's last seq.
+    forks = PARALLEL_FORKS.get(bundle, [])
+    fork_after = {stage: fork_seq for stage, fork_seq in forks}
+
+    # Pre-compute the highest sequence per parallel stage so the main timeline
+    # knows when each branch is "done" and can absorb its end date.
+    parallel_stage_end = {}
+    for tmpl in templates:
+        st = tmpl.get("fields", {}).get(ML_WORKFLOW_STAGE, "") or ""
+        sq = tmpl.get("fields", {}).get(ML_SEQUENCE, 0) or 0
+        if st in fork_after:
+            parallel_stage_end[st] = max(parallel_stage_end.get(st, 0), sq)
+
+    parallel_dates = {}        # stage → cumulative date in that branch
+    merged_branches = set()    # stages whose end has already been absorbed
+    date_at_sequence = {}      # records date after each milestone (for fork lookups)
+    seq_to_task_id = {}        # records created task id by sequence (for post-processing)
 
     for tmpl in templates:
         tf = tmpl.get("fields", {})
         duration = tf.get(ML_DURATION_DAYS, 0) or 0
         module = tf.get(ML_MODULE, "")
         sequence = tf.get(ML_SEQUENCE, 0) or 0
+        stage = tf.get(ML_WORKFLOW_STAGE, "") or ""
 
-        # Zero-duration markers (kickoff triggers, parallel-track markers,
-        # automation hooks) inherit the running cumulative date so every task
-        # has a date and sorts naturally. They don't advance the timeline.
-        if module in PARALLEL_MODULES:
-            # First parallel task: branch from the fork point
-            if parallel_date is None:
-                fork_seq = PARALLEL_MODULES[module]
-                parallel_date = date_at_sequence.get(fork_seq, current_date)
+        # Before processing, absorb any parallel branch whose last task is
+        # behind us in the sequence stream — its end date pulls main_date
+        # forward so subsequent main tasks start after both branches finish.
+        for p_stage, end_seq in parallel_stage_end.items():
+            if p_stage in merged_branches:
+                continue
+            if sequence > end_seq and p_stage in parallel_dates:
+                current_date = max(current_date, parallel_dates[p_stage])
+                merged_branches.add(p_stage)
+
+        if stage in fork_after:
+            # Parallel-branch task: compute date on the branch
+            if stage not in parallel_dates:
+                fork_seq = fork_after[stage]
+                parallel_dates[stage] = date_at_sequence.get(fork_seq, current_date)
             if duration:
-                parallel_date = parallel_date + timedelta(days=int(duration))
-            due_date = parallel_date.isoformat()
+                parallel_dates[stage] = parallel_dates[stage] + timedelta(days=int(duration))
+            branch_date = parallel_dates[stage]
+            due_date = branch_date.isoformat()
+            date_at_sequence[sequence] = branch_date
         else:
-            # When leaving a parallel branch, resume from whichever is later
-            if parallel_date is not None:
-                current_date = max(current_date, parallel_date)
-                parallel_date = None
+            # Main-timeline task: advance current_date
             if duration:
                 current_date = current_date + timedelta(days=int(duration))
             due_date = current_date.isoformat()
-            # Save checkpoint so parallel branches can fork from here
             date_at_sequence[sequence] = current_date
 
         task_fields = {
@@ -1748,6 +1773,32 @@ def inject_milestones(project_id, service_name, start_date=None):
         result = create_record(TASKS_TABLE, task_fields)
         if result:
             created += 1
+            seq_to_task_id[sequence] = result.get("id")
+
+    # Post-processing: PubDate and Launch Day Complete are the same event
+    # (book is live AND we celebrate it). When a bundle has both — e.g.
+    # Full Concierge / Chapters Signature — sync PubDate's date to whichever
+    # falls later. Other bundles only have one of them; nothing to sync.
+    pubdate_seq = launch_day_seq = None
+    for tmpl in templates:
+        nm = tmpl.get("fields", {}).get(ML_NAME, "")
+        sq = tmpl.get("fields", {}).get(ML_SEQUENCE, 0) or 0
+        if nm in ("PubDate", "CB PubDate"):
+            pubdate_seq = sq
+        elif nm == "Launch Day Complete":
+            launch_day_seq = sq
+
+    if pubdate_seq and launch_day_seq:
+        pubdate_date = date_at_sequence.get(pubdate_seq)
+        launch_date = date_at_sequence.get(launch_day_seq)
+        if pubdate_date and launch_date and pubdate_date != launch_date:
+            synced = max(pubdate_date, launch_date).isoformat()
+            pubdate_task_id = seq_to_task_id.get(pubdate_seq)
+            launch_task_id = seq_to_task_id.get(launch_day_seq)
+            if pubdate_task_id:
+                update_record(TASKS_TABLE, pubdate_task_id, {TASK_DUE_DATE: synced})
+            if launch_task_id:
+                update_record(TASKS_TABLE, launch_task_id, {TASK_DUE_DATE: synced})
 
     return created
 
