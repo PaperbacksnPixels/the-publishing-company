@@ -264,14 +264,20 @@ TYPEFLOW_MSA_FLOW_ID = "33bbd513db99493ab3d2ec01566fead3"
 # is approved.
 PARALLEL_FORKS = {
     "Full Concierge": [
-        ("Cover Design", 2054),   # parallel to Interior Design (forks after Copyedit Changes Applied)
-        ("Launch", 2110),          # parallel to production tail (forks after Cover Design Approved)
+        ("Cover Design", 2054),       # parallel to Interior Design (forks after Copyedit Changes Applied)
+        ("Ebook Formatting", 2140),   # forks after Print-Ready Files Approved (seq 2165-2167)
+        ("Ebook Distribution", 2167), # chains after Ebook Files Approved
+        ("Launch", 2110),              # parallel to production tail (forks after Cover Design Approved)
     ],
     "Publish-Ready Concierge": [
-        ("Cover Design", 3020),   # parallel to Interior Formatting (forks after Production Plan Confirmed)
+        ("Cover Design", 3020),       # parallel to Interior Formatting (forks after Production Plan Confirmed)
+        ("Ebook Formatting", 3100),   # forks after Print-Ready Files Approved
+        ("Ebook Distribution", 3170), # chains after Ebook Files Approved
     ],
     "Children's Book Concierge": [
-        ("Cover Design", 4172),   # parallel to Interior Layout (forks after CB Illustration Final Invoice Sent)
+        ("Cover Design", 4172),       # parallel to Interior Layout (forks after CB Illustration Final Invoice Sent)
+        ("Ebook Formatting", 4235),   # forks after CB Print-Ready Files Approved (seq 4255-4257)
+        ("Ebook Distribution", 4257), # chains after CB Ebook Files Approved
     ],
 }
 

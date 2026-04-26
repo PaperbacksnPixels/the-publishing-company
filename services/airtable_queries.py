@@ -1775,30 +1775,46 @@ def inject_milestones(project_id, service_name, start_date=None):
             created += 1
             seq_to_task_id[sequence] = result.get("id")
 
-    # Post-processing: PubDate and Launch Day Complete are the same event
-    # (book is live AND we celebrate it). When a bundle has both — e.g.
-    # Full Concierge / Chapters Signature — sync PubDate's date to whichever
-    # falls later. Other bundles only have one of them; nothing to sync.
-    pubdate_seq = launch_day_seq = None
+    # Post-processing: a few milestone pairs represent the same real-world
+    # event and should always land on the same date. We sync to whichever
+    # falls later (so the conservative date wins). Each pair only fires if
+    # both names are present in the bundle.
+    SYNC_PAIRS = [
+        # (names_for_anchor, names_for_partner)
+        # Each side accepts multiple aliases (e.g. CB-prefixed variants).
+        (("PubDate", "CB PubDate"), ("Launch Day Complete",)),
+        (("Files Uploaded to Distributors", "CB Files Uploaded to Distributors"),
+         ("Ebook Uploaded to Distributors", "CB Ebook Uploaded to Distributors")),
+        (("Book Live Confirmed", "CB Book Live Confirmed"),
+         ("Ebook Live Confirmed", "CB Ebook Live Confirmed")),
+    ]
+
+    name_to_seq = {}
     for tmpl in templates:
         nm = tmpl.get("fields", {}).get(ML_NAME, "")
         sq = tmpl.get("fields", {}).get(ML_SEQUENCE, 0) or 0
-        if nm in ("PubDate", "CB PubDate"):
-            pubdate_seq = sq
-        elif nm == "Launch Day Complete":
-            launch_day_seq = sq
+        if nm:
+            name_to_seq[nm] = sq
 
-    if pubdate_seq and launch_day_seq:
-        pubdate_date = date_at_sequence.get(pubdate_seq)
-        launch_date = date_at_sequence.get(launch_day_seq)
-        if pubdate_date and launch_date and pubdate_date != launch_date:
-            synced = max(pubdate_date, launch_date).isoformat()
-            pubdate_task_id = seq_to_task_id.get(pubdate_seq)
-            launch_task_id = seq_to_task_id.get(launch_day_seq)
-            if pubdate_task_id:
-                update_record(TASKS_TABLE, pubdate_task_id, {TASK_DUE_DATE: synced})
-            if launch_task_id:
-                update_record(TASKS_TABLE, launch_task_id, {TASK_DUE_DATE: synced})
+    def _resolve(names):
+        """Return (sequence, task_id, date) for the first matching name, or all None."""
+        for nm in names:
+            sq = name_to_seq.get(nm)
+            if sq is None:
+                continue
+            return sq, seq_to_task_id.get(sq), date_at_sequence.get(sq)
+        return None, None, None
+
+    for left_names, right_names in SYNC_PAIRS:
+        l_seq, l_id, l_date = _resolve(left_names)
+        r_seq, r_id, r_date = _resolve(right_names)
+        if l_date is None or r_date is None or l_date == r_date:
+            continue
+        synced = max(l_date, r_date).isoformat()
+        if l_id:
+            update_record(TASKS_TABLE, l_id, {TASK_DUE_DATE: synced})
+        if r_id:
+            update_record(TASKS_TABLE, r_id, {TASK_DUE_DATE: synced})
 
     return created
 
