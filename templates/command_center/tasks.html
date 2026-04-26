@@ -45,12 +45,11 @@
   <thead>
     <tr>
       <th>Task</th>
-      <th>Project</th>
+      <th>Book</th>
       <th>Partner</th>
       <th>Due</th>
       <th>Status</th>
       <th>Next Step</th>
-      <th>Actions</th>
     </tr>
   </thead>
   <tbody>
@@ -64,7 +63,7 @@
           {% if task.module %}<br><small>{{ task.module }}</small>{% endif %}
           {% if task.requires_pm %}<br><small>&#x26a0; Requires PM approval</small>{% endif %}
         </td>
-        <td>{{ task.project_name }}</td>
+        <td>{{ task.book_title or 'Book Title To Come' }}</td>
         <td>{{ task.partner_name or '—' }}</td>
         <td>
           {{ task.due_date or '—' }}
@@ -83,12 +82,6 @@
               {{ task.next_step.text }}
             </span>
           {% endif %}
-        </td>
-        <td>
-          {% if task.status != 'Complete' %}
-            <button class="btn-small" onclick="quickComplete('{{ task.id }}', this)">Done</button>
-          {% endif %}
-          <a href="{{ url_for('upload_file', task_id=task.id) }}" class="btn-small" style="text-decoration:none;">Upload</a>
         </td>
       </tr>
     {% endfor %}

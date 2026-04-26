@@ -1182,6 +1182,10 @@ def get_all_tasks():
         p.get("id"): p.get("fields", {}).get(PROJ_NAME, "")
         for p in all_projects
     }
+    project_book_titles = {
+        p.get("id"): p.get("fields", {}).get("fld2wXSVFxt3QHnX0", "")
+        for p in all_projects
+    }
 
     all_partners = get_records(PARTNERS_TABLE)
     partner_names = {
@@ -1196,10 +1200,11 @@ def get_all_tasks():
     for r in records:
         fields = r.get("fields", {})
 
-        # Get project name from pre-fetched dict
+        # Get project name + book title from pre-fetched dicts
         project_links = fields.get("fldj1YwlwJbfK956K", [])
         project_id = project_links[0] if project_links else ""
         project_name = project_names.get(project_id, "") if project_id else ""
+        book_title = project_book_titles.get(project_id, "") if project_id else ""
 
         # Get assigned partner name from pre-fetched dict
         partner_links = fields.get(TASK_ASSIGNED_PARTNER, [])
@@ -1247,6 +1252,7 @@ def get_all_tasks():
             "name": fields.get(TASK_NAME, "(unnamed)"),
             "project_id": project_id,
             "project_name": project_name,
+            "book_title": book_title,
             "partner_name": partner_name,
             "module": fields.get(TASK_MODULE, ""),
             "status": status,
