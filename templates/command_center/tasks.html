@@ -49,7 +49,7 @@
       <th>Partner</th>
       <th>Due</th>
       <th>Status</th>
-      <th>Next Step</th>
+      <th>Approval</th>
     </tr>
   </thead>
   <tbody>
@@ -70,23 +70,51 @@
           {% if task.is_overdue %}<br><small style="color: #c0392b;">OVERDUE</small>{% endif %}
         </td>
         <td>
-          <select class="status-select" data-task-id="{{ task.id }}" onchange="updateStatus(this)">
-            {% for s in ['Not Started', 'In Progress', 'Complete', 'Blocked', 'On Hold', 'Waiting'] %}
-              <option value="{{ s }}" {% if task.status == s %}selected{% endif %}>{{ s }}</option>
-            {% endfor %}
-          </select>
+          <span class="status-badge status-{{ task.status|lower|replace(' ', '-') }}">{{ task.status }}</span>
         </td>
         <td>
-          {% if task.next_step %}
-            <span class="next-step {% if task.next_step.action %}action-needed{% endif %}{% if task.next_step.up_next %} up-next{% endif %}" style="display:inline-block;">
-              {{ task.next_step.text }}
-            </span>
+          {% set is_done = task.status == 'Complete' %}
+          {% if task.requires_pm and task.requires_author %}
+            {% if is_done %}<span class="approval-badge approved">&check; Approved</span>
+            {% else %}<span class="approval-badge needs">&#x26a0; Needs PM &amp; Author</span>{% endif %}
+          {% elif task.requires_pm %}
+            {% if is_done %}<span class="approval-badge approved">&check; PM approved</span>
+            {% else %}<span class="approval-badge needs">&#x26a0; Needs PM</span>{% endif %}
+          {% elif task.requires_author %}
+            {% if is_done %}<span class="approval-badge approved">&check; Author approved</span>
+            {% else %}<span class="approval-badge needs">&#x26a0; Needs author</span>{% endif %}
+          {% else %}
+            <span class="approval-badge none">—</span>
           {% endif %}
         </td>
       </tr>
     {% endfor %}
   </tbody>
 </table>
+
+<style>
+  .approval-badge {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    border: 1px solid var(--black);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .approval-badge.approved {
+    background: var(--pink, #d5f5e3);
+  }
+  .approval-badge.needs {
+    background: var(--yellow, #fde64a);
+  }
+  .approval-badge.none {
+    border-color: transparent;
+    color: #999;
+    font-weight: 400;
+  }
+</style>
 
 <script>
 // Inline status update via AJAX
