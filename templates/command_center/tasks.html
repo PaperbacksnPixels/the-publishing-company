@@ -110,10 +110,9 @@ function updateStatus(selectEl) {
   .then(data => {
     if (data.success) {
       selectEl.classList.add('changed');
-      // Update row styling
       const row = document.getElementById(`task-row-${taskId}`);
       if (newStatus === 'Complete') {
-        row.classList.remove('overdue', 'due-soon');
+        markRowComplete(row);
       }
       setTimeout(() => selectEl.classList.remove('changed'), 2000);
     } else {
@@ -121,6 +120,31 @@ function updateStatus(selectEl) {
     }
   })
   .catch(() => alert('Network error — could not update status.'));
+}
+
+// Apply the "task done" visual treatment: green flash, swap Done button for a check,
+// clear next-step text. Used when status flips to Complete (via dropdown OR Done button).
+function markRowComplete(row) {
+  if (!row || row.dataset.markedComplete === '1') return;
+  row.dataset.markedComplete = '1';
+
+  row.classList.remove('overdue', 'due-soon');
+  row.classList.add('task-complete-flash');
+
+  const btn = row.querySelector('.btn-small[onclick^="quickComplete"]');
+  if (btn) {
+    btn.style.display = 'none';
+    const check = document.createElement('span');
+    check.className = 'check-pop';
+    check.textContent = '✔';
+    btn.parentElement.prepend(check);
+  }
+
+  const nextStepCell = row.querySelector('.next-step');
+  if (nextStepCell) {
+    nextStepCell.className = 'next-step';
+    nextStepCell.textContent = 'Complete';
+  }
 }
 
 // Quick "Done" button — with satisfying completion animation

@@ -88,7 +88,7 @@ def compute_next_step(task, files, role, is_up_next=False):
             return {"text": f"{up_next_prefix}Upload the source file for {partner_name}", "action": True, "complete": False, "up_next": is_up_next}
         if has_deliverable and latest_direction == "From Partner":
             return {"text": f"{up_next_prefix}Review {partner_name}'s deliverable", "action": True, "complete": False, "up_next": is_up_next}
-        if requires_pm:
+        if requires_pm and status == "In Progress":
             return {"text": f"{up_next_prefix}Approve this task", "action": True, "complete": False, "up_next": is_up_next}
         if status == "In Progress":
             return {"text": "In progress", "action": False, "complete": False, "up_next": False}
@@ -1263,7 +1263,9 @@ def get_all_tasks():
         task_dict["next_step"] = compute_next_step(task_dict, task_files, "Admin")
         tasks.append(task_dict)
 
-    tasks.sort(key=lambda t: t["urgency"])
+    # Sort by urgency bucket, then chronologically by due date within each bucket.
+    # Undated tasks fall to the end of their bucket via the "9999" sentinel.
+    tasks.sort(key=lambda t: (t["urgency"], t["due_date"] or "9999-12-31"))
     return tasks
 
 
