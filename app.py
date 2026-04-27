@@ -695,6 +695,21 @@ def register_routes(app):
                 priority_tasks=priority_tasks,
                 overdue_followups=overdue_followups,
             )
+        elif tab == "users":
+            from services.airtable_queries import get_portal_users
+            portal_users = get_portal_users()
+            authors = get_all_authors()
+            partners = get_all_partners()
+            return render_template(
+                "command_center/portal_users.html",
+                tab=tab,
+                portal_users=portal_users,
+                authors=authors,
+                partners=partners,
+                first_name=first_name,
+                priority_tasks=priority_tasks,
+                overdue_followups=overdue_followups,
+            )
 
         # Unknown tab — fall back to tasks
         return redirect(url_for("command_center", tab="tasks"))
@@ -1163,6 +1178,109 @@ def register_routes(app):
         )
 
     # ---- API endpoints for inline actions ----
+
+    @app.route("/command-center/users/create", methods=["POST"])
+    @login_required
+    @role_required("Admin")
+    def create_portal_user():
+        """
+        Admin-only — onboard a new portal user end-to-end.
+
+        Three steps wired together so it feels like one action:
+          1. Sign the user up in Supabase Auth (via signup endpoint with the
+             temp password we generate). The UUID comes back in the response.
+          2. Create the Portal Users row in Airtable, mapping the UUID to
+             the linked Author/Partner/Internal Team record.
+          3. Trigger Supabase to send a password-reset email so the user
+             sets their own password and lands logged in.
+
+        On failure of step 1, we surface the Supabase error and don't touch
+        Airtable. On failure of step 2 after step 1 succeeded, we still send
+        the reset email but flag the Airtable mapping issue so Julie can
+        retry the link without re-creating the user.
+        """
+        from auth.supabase_client import create_user as supa_create_user
+        from airtable_helpers import create_record as airtable_create
+        from config import (
+            PORTAL_USERS_TABLE, PU_EMAIL, PU_SUPABASE_ID, PU_ROLE,
+            PU_LINKED_AUTHOR, PU_LINKED_PARTNER, PU_LINKED_INTERNAL,
+            PU_ACTIVE, PU_DISPLAY_NAME, PU_NOTES,
+        )
+
+        email = (request.form.get("email") or "").strip()
+        role = (request.form.get("role") or "").strip()
+        display_name = (request.form.get("display_name") or "").strip()
+        linked_author = request.form.get("linked_author") or ""
+        linked_partner = request.form.get("linked_partner") or ""
+        linked_internal = request.form.get("linked_internal") or ""
+        notes = (request.form.get("notes") or "").strip()
+
+        if not email or not role:
+            flash("Email and Role are required.", "error")
+            return redirect(url_for("command_center", tab="users"))
+
+        # Pick the linked record based on role so the form's three optional
+        # link inputs collapse into the one that actually matters.
+        link_field = None
+        link_value = None
+        if role == "Author" and linked_author:
+            link_field, link_value = PU_LINKED_AUTHOR, linked_author
+        elif role in ("Task Partner", "Channel Partner", "JV Partner") and linked_partner:
+            link_field, link_value = PU_LINKED_PARTNER, linked_partner
+        elif role == "Admin" and linked_internal:
+            link_field, link_value = PU_LINKED_INTERNAL, linked_internal
+
+        # 1. Supabase signup with a throwaway password — we'll send a reset
+        #    email immediately so the user picks their own.
+        temp_password = uuid.uuid4().hex
+        supa_result = supa_create_user(email, temp_password)
+        if not supa_result.get("success"):
+            flash(f"Could not create Supabase user: {supa_result.get('error')}", "error")
+            return redirect(url_for("command_center", tab="users"))
+
+        supabase_uuid = supa_result["user_id"]
+
+        # 2. Airtable Portal Users row
+        fields = {
+            PU_EMAIL: email,
+            PU_SUPABASE_ID: supabase_uuid,
+            PU_ROLE: role,
+            PU_ACTIVE: True,
+        }
+        if display_name:
+            fields[PU_DISPLAY_NAME] = display_name
+        if notes:
+            fields[PU_NOTES] = notes
+        if link_field and link_value:
+            fields[link_field] = [link_value]
+
+        airtable_result = airtable_create(PORTAL_USERS_TABLE, fields)
+
+        # 3. Password-reset email — sent regardless of Airtable result so the
+        #    Supabase user isn't stranded without a way to set a password.
+        public_url = os.environ.get("PUBLIC_URL", request.url_root.rstrip("/"))
+        reset_redirect = f"{public_url}/auth/callback"
+        reset_result = supa_forgot(email, redirect_to=reset_redirect)
+
+        if not airtable_result:
+            flash(
+                f"Supabase user created (UUID {supabase_uuid}) but Airtable "
+                f"mapping failed. Add the Portal Users row manually.",
+                "error",
+            )
+        elif not reset_result.get("success"):
+            flash(
+                f"User added but reset email failed: {reset_result.get('error')}. "
+                f"Have them use 'Forgot password' from the login page.",
+                "error",
+            )
+        else:
+            flash(
+                f"Added {email} as {role}. They'll receive a password-reset email shortly.",
+                "success",
+            )
+
+        return redirect(url_for("command_center", tab="users"))
 
     @app.route("/api/task/<task_id>/status", methods=["POST"])
     @login_required

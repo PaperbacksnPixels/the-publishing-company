@@ -115,6 +115,68 @@ def login_user(email, password):
 
 
 # ============================================================
+# CREATE USER (admin-driven onboarding)
+# ============================================================
+
+def create_user(email, password):
+    """
+    Sign a new user up via Supabase's public signup endpoint.
+
+    The anon-key signup flow is what's available without a SERVICE_ROLE_KEY.
+    Behavior depends on Supabase project settings:
+      - If "Enable email confirmations" is OFF, the user is immediately
+        confirmed and can log in with the password we provide here.
+      - If it's ON, Supabase emails the user a confirmation link and they
+        must click before they can log in.
+
+    Either way, the response includes the user's UUID, which is what we
+    need to wire them up to a Portal Users record in Airtable.
+
+    Returns:
+        {success: True, user_id: "...", email: "..."} on success
+        {success: False, error: "..."} on failure (already-exists is the
+        most common case here).
+    """
+    url, _ = _get_config()
+    if not url:
+        return {"success": False, "error": "Supabase not configured"}
+
+    endpoint = f"{url}/auth/v1/signup"
+
+    try:
+        resp = requests.post(
+            endpoint,
+            headers=_auth_headers(),
+            json={"email": email, "password": password},
+            timeout=10,
+        )
+
+        data = resp.json() if resp.text else {}
+
+        if resp.status_code in (200, 201):
+            user = data.get("user") or data
+            user_id = user.get("id") if isinstance(user, dict) else None
+            if not user_id:
+                return {"success": False, "error": "Signup succeeded but no user id returned"}
+            return {
+                "success": True,
+                "user_id": user_id,
+                "email": user.get("email", email),
+            }
+
+        error = (
+            data.get("error_description")
+            or data.get("msg")
+            or data.get("error")
+            or f"Signup failed with status {resp.status_code}"
+        )
+        return {"success": False, "error": error}
+
+    except requests.RequestException as e:
+        return {"success": False, "error": f"Could not reach Supabase: {e}"}
+
+
+# ============================================================
 # LOGOUT
 # ============================================================
 

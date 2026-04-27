@@ -1,0 +1,173 @@
+{% extends "command_center/base_cc.html" %}
+
+{% block cc_content %}
+<h2>Portal Users</h2>
+<p class="subtitle-text">Anyone who can log in to the portal — authors, partners, channel partners, internal admins. Adding a user creates their Supabase account and emails them a password reset link.</p>
+
+{# ---- Existing users ---- #}
+<div class="users-card">
+  <h3>Active accounts ({{ portal_users|length }})</h3>
+  {% if portal_users %}
+    <table class="cc-table">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Display name</th>
+          <th>Role</th>
+          <th>Linked to</th>
+          <th>Active</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in portal_users %}
+          <tr>
+            <td>{{ u.email }}</td>
+            <td>{{ u.display_name or '—' }}</td>
+            <td>{{ u.role or '—' }}</td>
+            <td>{{ u.linked_name or '—' }}</td>
+            <td>{% if u.active %}<span class="status-badge status-complete">Yes</span>{% else %}<span class="status-badge">No</span>{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty-state">No portal users yet.</p>
+  {% endif %}
+</div>
+
+{# ---- Add new user ---- #}
+<div class="users-card">
+  <h3>Add a new user</h3>
+  <form method="POST" action="{{ url_for('create_portal_user') }}" class="add-user-form">
+    <div class="form-grid-startup">
+      <label for="email">Email</label>
+      <input type="email" name="email" id="email" class="form-input" required
+             placeholder="person@example.com">
+
+      <label for="display_name">Display name</label>
+      <input type="text" name="display_name" id="display_name" class="form-input"
+             placeholder="What we'll greet them with (e.g. 'Deborah')">
+
+      <label for="role">Role</label>
+      <select name="role" id="role" class="form-input" required onchange="showLinkPicker()">
+        <option value="">— Select role —</option>
+        <option value="Author">Author</option>
+        <option value="Task Partner">Task Partner</option>
+        <option value="Channel Partner">Channel Partner</option>
+        <option value="JV Partner">JV Partner</option>
+        <option value="Admin">Admin</option>
+      </select>
+
+      <label id="lblLinkAuthor" for="linked_author" style="display:none;">Linked Author</label>
+      <select name="linked_author" id="linked_author" class="form-input" style="display:none;">
+        <option value="">— Pick an author —</option>
+        {% for a in authors %}
+          <option value="{{ a.id }}">{{ a.name }}</option>
+        {% endfor %}
+      </select>
+
+      <label id="lblLinkPartner" for="linked_partner" style="display:none;">Linked Partner</label>
+      <select name="linked_partner" id="linked_partner" class="form-input" style="display:none;">
+        <option value="">— Pick a partner —</option>
+        {% for p in partners %}
+          <option value="{{ p.id }}" data-type="{{ p.type }}">{{ p.name }} ({{ p.type or 'Partner' }})</option>
+        {% endfor %}
+      </select>
+
+      <label id="lblLinkInternal" for="linked_internal" style="display:none;">Linked Internal Team</label>
+      <select name="linked_internal" id="linked_internal" class="form-input" style="display:none;">
+        <option value="">— (Internal Team picker not yet wired) —</option>
+      </select>
+
+      <label for="notes">Notes</label>
+      <input type="text" name="notes" id="notes" class="form-input"
+             placeholder="Optional context (e.g. 'Lead PM at Chapters')">
+    </div>
+
+    <div class="startup-actions">
+      <button type="submit" class="btn-startup">Create account &amp; send reset email</button>
+    </div>
+  </form>
+</div>
+
+<style>
+  .users-card {
+    border: var(--border);
+    background: var(--white);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow);
+  }
+  .users-card h3 {
+    margin-top: 0;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.7;
+  }
+  .form-grid-startup {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 0.75rem 1rem;
+    align-items: center;
+  }
+  .form-grid-startup label {
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #666;
+  }
+  .form-input {
+    padding: 0.5rem;
+    border: 2px solid #ddd;
+    font-size: 0.9rem;
+    font-family: inherit;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .form-input:focus { border-color: #222; outline: none; }
+  .startup-actions { margin-top: 1.5rem; }
+  .btn-startup {
+    background: #27ae60;
+    color: #fff;
+    border: 2px solid #222;
+    padding: 12px 28px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 #222;
+  }
+  .btn-startup:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 #222; }
+  .subtitle-text { color: #666; margin-bottom: 1.5rem; line-height: 1.5; }
+  .empty-state { color: #999; font-style: italic; }
+</style>
+
+<script>
+function showLinkPicker() {
+  var role = document.getElementById('role').value;
+  var pickers = ['Author', 'Partner', 'Internal'];
+  pickers.forEach(function (p) {
+    document.getElementById('lblLink' + p).style.display = 'none';
+    document.getElementById('linked_' + p.toLowerCase()).style.display = 'none';
+  });
+
+  if (role === 'Author') {
+    document.getElementById('lblLinkAuthor').style.display = '';
+    document.getElementById('linked_author').style.display = '';
+  } else if (role === 'Task Partner' || role === 'Channel Partner' || role === 'JV Partner') {
+    document.getElementById('lblLinkPartner').style.display = '';
+    document.getElementById('linked_partner').style.display = '';
+    // Filter partner options by type
+    var picker = document.getElementById('linked_partner');
+    Array.from(picker.options).forEach(function (opt) {
+      if (!opt.value) return;  // keep the placeholder
+      opt.style.display = (opt.dataset.type === role) ? '' : 'none';
+    });
+  } else if (role === 'Admin') {
+    document.getElementById('lblLinkInternal').style.display = '';
+    document.getElementById('linked_internal').style.display = '';
+  }
+}
+</script>
+{% endblock %}

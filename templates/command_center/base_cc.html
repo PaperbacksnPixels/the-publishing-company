@@ -68,6 +68,10 @@
        class="cc-tab {% if tab == 'partners' %}active{% endif %}">
       Partners
     </a>
+    <a href="{{ url_for('command_center', tab='users') }}"
+       class="cc-tab {% if tab == 'users' %}active{% endif %}">
+      Users
+    </a>
   </nav>
 
   <div class="cc-content">

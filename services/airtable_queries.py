@@ -1568,6 +1568,56 @@ def get_available_services():
     return sorted(SERVICE_TO_BUNDLE.keys())
 
 
+def get_portal_users():
+    """
+    Fetch all Portal Users records with their linked record's name resolved
+    so the admin list can show "Tessa Testauthor" instead of just an
+    Airtable record id. One Portal Users row = one person who can log in.
+    """
+    from config import (
+        PORTAL_USERS_TABLE, PU_EMAIL, PU_SUPABASE_ID, PU_ROLE,
+        PU_LINKED_AUTHOR, PU_LINKED_PARTNER, PU_LINKED_INTERNAL,
+        PU_ACTIVE, PU_NOTES, PU_DISPLAY_NAME,
+        AUTHORS_TABLE, PARTNERS_TABLE, AUTHOR_NAME, PARTNER_NAME,
+    )
+
+    records = get_records(PORTAL_USERS_TABLE)
+
+    # Pre-fetch lookup tables so we can resolve linked names without N+1
+    author_names = {
+        a.get("id"): a.get("fields", {}).get(AUTHOR_NAME, "")
+        for a in get_records(AUTHORS_TABLE)
+    }
+    partner_names = {
+        p.get("id"): p.get("fields", {}).get(PARTNER_NAME, "")
+        for p in get_records(PARTNERS_TABLE)
+    }
+
+    users = []
+    for r in records:
+        f = r.get("fields", {})
+        author_links = f.get(PU_LINKED_AUTHOR, [])
+        partner_links = f.get(PU_LINKED_PARTNER, [])
+        linked_name = ""
+        if author_links:
+            linked_name = author_names.get(author_links[0], "")
+        elif partner_links:
+            linked_name = partner_names.get(partner_links[0], "")
+
+        users.append({
+            "id": r.get("id"),
+            "email": f.get(PU_EMAIL, ""),
+            "supabase_id": f.get(PU_SUPABASE_ID, ""),
+            "role": f.get(PU_ROLE, ""),
+            "linked_name": linked_name,
+            "active": f.get(PU_ACTIVE, False),
+            "display_name": f.get(PU_DISPLAY_NAME, ""),
+            "notes": f.get(PU_NOTES, ""),
+        })
+    users.sort(key=lambda u: (u["role"], u["email"]))
+    return users
+
+
 def get_all_authors():
     """Fetch all authors for the project startup dropdown."""
     records = get_records(AUTHORS_TABLE)
