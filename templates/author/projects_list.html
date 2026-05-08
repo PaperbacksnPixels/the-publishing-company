@@ -38,6 +38,12 @@
             </div>
           {% endif %}
 
+          {% if p.has_channel_partner %}
+            <div style="font-size: 0.75rem; color: #e67e22; font-weight: bold; margin-bottom: 0.5rem;">
+              Managed by Partner
+            </div>
+          {% endif %}
+
           <div class="proj-card-footer">
             {% if p.start_date %}
               <span>Started {{ p.start_date }}</span>

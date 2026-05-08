@@ -16,6 +16,7 @@
           <th>Role</th>
           <th>Linked to</th>
           <th>Active</th>
+          <th>Preview</th>
         </tr>
       </thead>
       <tbody>
@@ -26,6 +27,15 @@
             <td>{{ u.role or '—' }}</td>
             <td>{{ u.linked_name or '—' }}</td>
             <td>{% if u.active %}<span class="status-badge status-complete">Yes</span>{% else %}<span class="status-badge">No</span>{% endif %}</td>
+            <td>
+              {% if u.role == "Author" and u.linked_author_id %}
+                <a href="{{ url_for('admin_preview_start', role_type='author', record_id=u.linked_author_id) }}" class="btn-preview-small">View as</a>
+              {% elif u.role == "Task Partner" and u.linked_partner_id %}
+                <a href="{{ url_for('admin_preview_start', role_type='task-partner', record_id=u.linked_partner_id) }}" class="btn-preview-small">View as</a>
+              {% elif u.role == "Channel Partner" and u.linked_partner_id %}
+                <a href="{{ url_for('admin_preview_start', role_type='channel-partner', record_id=u.linked_partner_id) }}" class="btn-preview-small">View as</a>
+              {% endif %}
+            </td>
           </tr>
         {% endfor %}
       </tbody>
@@ -141,6 +151,16 @@
   .btn-startup:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 #222; }
   .subtitle-text { color: #666; margin-bottom: 1.5rem; line-height: 1.5; }
   .empty-state { color: #999; font-style: italic; }
+  .btn-preview-small {
+    background: #fff;
+    border: 1px solid #222;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-decoration: none;
+    color: #222;
+  }
+  .btn-preview-small:hover { background: #222; color: #fff; }
 </style>
 
 <script>
