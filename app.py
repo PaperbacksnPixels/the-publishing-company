@@ -75,6 +75,7 @@ from services.airtable_queries import (
     update_task,
     get_milestones_for_channel_project,
     get_invoices_for_channel_project,
+    get_interactions_for_channel_project,
     get_project_detail_admin,
     get_partner_detail_admin,
     get_available_services,
@@ -587,12 +588,14 @@ def register_routes(app):
 
             milestones = get_milestones_for_channel_project(partner_id, project_id)
             invoices = get_invoices_for_channel_project(partner_id, project_id)
+            interactions = get_interactions_for_channel_project(partner_id, project_id)
 
             return render_template(
                 "partner/project_detail_channel.html",
                 project=project,
                 milestones=milestones,
                 invoices=invoices,
+                interactions=interactions,
             )
 
         flash("Unknown partner type.", "error")
@@ -1006,13 +1009,24 @@ def register_routes(app):
 
     @app.route("/api/interaction", methods=["POST"])
     @login_required
-    @role_required("Admin")
+    @role_required("Admin", "Channel Partner")
     def api_log_interaction():
+        project_id = request.form.get("project_id", "").strip()
+        if not project_id:
+            return jsonify({"success": False, "error": "project_id required"}), 400
+
+        role = session.get("role")
+        partner_id = session.get("linked_partner_id")
+
+        if role == "Channel Partner":
+            from services.airtable_queries import get_project_for_channel_partner
+            if not get_project_for_channel_partner(partner_id, project_id):
+                return jsonify({"success": False, "error": "Access denied"}), 403
+
         """
         Log an interaction (call, email, meeting, text, note) against a project.
         Returns JSON for AJAX callers.
         """
-        project_id = request.form.get("project_id", "").strip()
         if not project_id:
             return jsonify({"success": False, "error": "project_id required"}), 400
 
@@ -1385,8 +1399,16 @@ def register_routes(app):
 
     @app.route("/api/project/<project_id>/create-invoice", methods=["POST"])
     @login_required
-    @role_required("Admin")
+    @role_required("Admin", "Channel Partner")
     def api_create_invoice(project_id):
+        role = session.get("role")
+        partner_id = session.get("linked_partner_id")
+
+        if role == "Channel Partner":
+            from services.airtable_queries import get_project_for_channel_partner
+            if not get_project_for_channel_partner(partner_id, project_id):
+                return jsonify({"success": False, "error": "Access denied"}), 403
+
         """
         Manually create an invoice for a project (add-on services, custom charges).
         Expects JSON: {"amount": 2000, "type": "Add-On", "description": "AI Edition"}

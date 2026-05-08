@@ -94,6 +94,28 @@
     </div>
 
     {# ---- Lead / CRM Card — only for pre-active stages ---- #}
+    {# ---- Project Team Card ---- #}
+    <div class="detail-card">
+      <h3>Project Team</h3>
+      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+        {% set team = [] %}
+        {% for t in project.tasks %}
+          {% if t.partner_name and t.partner_name not in team %}
+            {% if team.append(t.partner_name) %}{% endif %}
+          {% endif %}
+        {% endfor %}
+        {% if team %}
+          {% for p in team %}
+            <div style="padding: 0.5rem; border: 1px solid #ddd; background: #fff; font-weight: bold;">
+              {{ p }}
+            </div>
+          {% endfor %}
+        {% else %}
+          <p class="hint">No freelancers assigned yet.</p>
+        {% endif %}
+      </div>
+    </div>
+
     {% if project.status in ['Lead', 'Discovery', 'Proposal', 'Contract Sent', 'Signed'] %}
     <div class="detail-card">
       <h3>Lead &amp; CRM</h3>
