@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard — The Publishing Company{% endblock %}
+{% block title %}Dashboard — The Publishing Company<style>.subtitle { color: #666; margin: 0.25rem 0 1rem 0; font-size: 0.9rem; }</style>
+{% endblock %}
 
 {% block content %}
 <div class="author-projects" style="max-width: 720px; margin: 0 auto;">
   <div class="projects-header" style="margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 3px solid #222;">
     <h1>Welcome{% if display_name %}, {{ display_name }}{% endif %}!</h1>
+    <p class="subtitle">Signed in as <strong>{{ role }}</strong></p>
     <p style="color: #666; margin: 0;">Everything you need for your projects, in one place.</p>
   </div>
 
@@ -14,4 +16,5 @@
     <p style="margin: 0; color: #666;">View your books, milestones, documents, and billing.</p>
   </a>
 </div>
+<style>.subtitle { color: #666; margin: 0.25rem 0 1rem 0; font-size: 0.9rem; }</style>
 {% endblock %}

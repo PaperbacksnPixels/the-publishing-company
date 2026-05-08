@@ -34,6 +34,7 @@
       <th>Status</th>
       <th>Tasks</th>
       <th>Projects</th>
+      <th>Preview</th>
     </tr>
   </thead>
   <tbody>
@@ -59,8 +60,27 @@
         </td>
         <td>{{ p.task_count }}</td>
         <td>{{ p.project_count }}</td>
+        <td>
+          {% if p.type == "Task Partner" %}
+            <a href="{{ url_for('admin_preview_start', role_type='task-partner', record_id=p.id) }}" class="btn-preview-small">View as</a>
+          {% elif p.type == "Channel Partner" %}
+            <a href="{{ url_for('admin_preview_start', role_type='channel-partner', record_id=p.id) }}" class="btn-preview-small">View as</a>
+          {% endif %}
+        </td>
       </tr>
     {% endfor %}
   </tbody>
 </table>
+<style>
+  .btn-preview-small {
+    background: #fff;
+    border: 1px solid #222;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-decoration: none;
+    color: #222;
+  }
+  .btn-preview-small:hover { background: #222; color: #fff; }
+</style>
 {% endblock %}

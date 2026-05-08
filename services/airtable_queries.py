@@ -245,6 +245,10 @@ def get_projects_for_author(author_id):
         total_tasks = fields.get("fldtHh5z0Ciw3sJUR", 0) or 0
         completed_tasks = fields.get("fld2fuE6jFyvi5RcZ", 0) or 0
 
+        # Check if the project has a channel partner (hides billing from author)
+        channel_partner_links = fields.get("fld5fGLcwvYNdPIdp", [])
+        has_channel_partner = len(channel_partner_links) > 0
+
         projects.append({
             "id": project.get("id"),
             "name": fields.get(PROJ_NAME, "(unnamed project)"),
@@ -255,6 +259,7 @@ def get_projects_for_author(author_id):
             "total_tasks": int(total_tasks),
             "completed_tasks": int(completed_tasks),
             "progress_pct": int((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0),
+            "has_channel_partner": has_channel_partner,
         })
 
     return projects
@@ -1636,6 +1641,8 @@ def get_portal_users():
             "active": f.get(PU_ACTIVE, False),
             "display_name": f.get(PU_DISPLAY_NAME, ""),
             "notes": f.get(PU_NOTES, ""),
+            "linked_author_id": author_links[0] if author_links else "",
+            "linked_partner_id": partner_links[0] if partner_links else "",
         })
     users.sort(key=lambda u: (u["role"], u["email"]))
     return users
