@@ -643,6 +643,14 @@ def get_milestones_for_channel_project(partner_id, project_id):
             continue
         fields = task.get("fields", {})
 
+        # Get assigned partner name
+        partner_links = fields.get(TASK_ASSIGNED_PARTNER, [])
+        partner_name = ""
+        if partner_links:
+            partner_rec = get_record(PARTNERS_TABLE, partner_links[0])
+            if partner_rec:
+                partner_name = partner_rec.get("fields", {}).get(PARTNER_NAME, "")
+
         # Channel Partners see all milestones (not filtered by Author Visible)
         milestones.append({
             "id": task.get("id"),
@@ -652,10 +660,25 @@ def get_milestones_for_channel_project(partner_id, project_id):
             "status": fields.get(TASK_STATUS, "Not Started"),
             "due_date": fields.get(TASK_DUE_DATE, ""),
             "stage_description": fields.get(TASK_STAGE_DESC, ""),
+            "partner_name": partner_name,
         })
 
     milestones.sort(key=lambda m: m.get("sequence") or 999)
     return milestones
+
+
+
+def get_interactions_for_channel_project(partner_id, project_id):
+    """
+    Fetch interactions for a Channel Partner's project.
+    Verify ownership first.
+    """
+    project = get_project_for_channel_partner(partner_id, project_id)
+    if not project:
+        return []
+
+    from services.crm_queries import get_interactions_for_project
+    return get_interactions_for_project(project_id)
 
 
 def get_invoices_for_channel_project(partner_id, project_id):
